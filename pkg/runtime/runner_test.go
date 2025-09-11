@@ -79,7 +79,7 @@ func TestRunner_ApplyEventThenEffects_SQLite(t *testing.T) {
 
 	r := NewRunner(st, testReducer{}, []agent.EffectHandler{testHandler{}}, func(runID string) agent.State {
 		return testState{runID: runID, Count: 0}
-	})
+	}, WithSnapshot(jsonCodec{}, 1))
 
 	runID := "run-1"
 	// Incoming event: inc n=1
@@ -122,7 +122,7 @@ func TestRunner_IdempotentIntent_SQLite(t *testing.T) {
 	// Reducer emits an intent with a fixed idempotency key so duplicates are skipped.
 	r := NewRunner(st, reducerWithIdem{}, []agent.EffectHandler{testHandler{}}, func(runID string) agent.State {
 		return testState{runID: runID, Count: 0}
-	})
+	}, WithSnapshot(jsonCodec{}, 2))
 
 	runID := "run-idem"
 	ev := agent.Event{ID: "inc1", Type: "inc", Timestamp: time.Now().UTC(), Payload: map[string]any{"n": 1}}
@@ -142,6 +142,67 @@ func TestRunner_IdempotentIntent_SQLite(t *testing.T) {
 	ts := current.(testState)
 	if ts.Count != 3 {
 		t.Fatalf("count=%d want 3 (idempotent)", ts.Count)
+	}
+}
+
+// jsonCodec is a simple SnapshotCodec using JSON for testState.
+type jsonCodec struct{}
+
+func (jsonCodec) Encode(state agent.State) ([]byte, error) {
+	ts := state.(testState)
+	b, err := json.Marshal(ts)
+	return b, err
+}
+
+func (jsonCodec) Decode(runID string, data []byte) (agent.State, error) {
+	var ts testState
+	if err := json.Unmarshal(data, &ts); err != nil {
+		return nil, err
+	}
+	// Ensure runID matches the requested one
+	if ts.runID == "" {
+		ts.runID = runID
+	}
+	return ts, nil
+}
+
+func TestRunner_SnapshotAndResume_SQLite(t *testing.T) {
+	ctx := context.Background()
+	st, err := entstore.Open(ctx, "sqlite:file:runtime-snap?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_fk=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	r := NewRunner(st, testReducer{}, []agent.EffectHandler{testHandler{}}, func(runID string) agent.State {
+		return testState{runID: runID, Count: 0}
+	}, WithSnapshot(jsonCodec{}, 2))
+
+	runID := "run-snap"
+	// First event increments by 1 and emits +2 => 3, seq 1 and 2 then snapshot at seq 2 (interval=2)
+	if _, err := r.HandleEvent(ctx, runID, agent.Event{ID: "s1", Type: "inc", Timestamp: time.Now().UTC(), Payload: map[string]any{"n": 1}}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate resume by creating a new runner instance using same store and codec.
+	r2 := NewRunner(st, testReducer{}, []agent.EffectHandler{testHandler{}}, func(runID string) agent.State {
+		return testState{runID: runID, Count: 0}
+	}, WithSnapshot(jsonCodec{}, 2))
+
+	// Apply another event; state should start from snapshot (3), then +1 +2 => 6
+	if _, err := r2.HandleEvent(ctx, runID, agent.Event{ID: "s2", Type: "inc", Timestamp: time.Now().UTC(), Payload: map[string]any{"n": 1}}); err != nil {
+		t.Fatal(err)
+	}
+	cur, _, err := r2.replayState(ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := cur.(testState)
+	if ts.Count != 6 {
+		t.Fatalf("after resume, count=%d want 6", ts.Count)
 	}
 }
 
