@@ -42,8 +42,14 @@ fi
 
 ## Git commits
 
-- After formatting and tests pass, stage changes from the repository root:
+- After formatting and tests pass, use golangci-lint:
 
+```bash
+golangci-lint fmt
+golangci-lint run
+```
+
+And then stage changes from the repository root:
 ```bash
 git add .
 git commit -m "<type>: <summary>"

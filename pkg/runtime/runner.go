@@ -207,7 +207,7 @@ func (r *Runner) replayState(ctx context.Context, runID string) (agent.State, in
 		return nil, 0, err
 	}
 	current := base
-	var last int64 = upto
+	last := upto
 	for _, er := range events {
 		ev, err := recordToAgentEvent(er)
 		if err != nil {

@@ -42,7 +42,7 @@ func TestControlPlane_RunLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d", res.StatusCode)
 	}
@@ -107,7 +107,7 @@ func TestHTTPErrorEnvelope_BadJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d want 400", res.StatusCode)
 	}
@@ -181,7 +181,7 @@ func TestE2E_TodoExample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resEvents.Body.Close()
+	defer func() { _ = resEvents.Body.Close() }()
 	var events []struct {
 		Type string `json:"type"`
 	}
@@ -226,7 +226,7 @@ func TestErrorEnvelopeIncludesTraceID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	var envelope struct {
 		TraceID string `json:"trace_id"`
 	}

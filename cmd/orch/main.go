@@ -57,7 +57,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "store open error: %v\n", err)
 		os.Exit(1)
 	}
-	defer st.Close()
+	defer func() { _ = st.Close() }()
 	if err := st.Migrate(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "migrate error: %v\n", err)
 		os.Exit(1)

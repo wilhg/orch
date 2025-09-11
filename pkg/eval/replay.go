@@ -2,7 +2,6 @@ package eval
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/wilhg/orch/pkg/agent"
 	"github.com/wilhg/orch/pkg/runtime"
@@ -20,12 +19,6 @@ func ReplayRun(ctx context.Context, st store.Store, r agent.Reducer, handlers []
 	rn := runtime.NewRunner(st, r, handlers, newState, runtime.WithSnapshot(snap, 2))
 	var final agent.State
 	for _, e := range cap.Events {
-		if e.Payload != nil {
-			// ensure payload is valid JSON raw
-			if _, ok := e.Payload.(json.RawMessage); ok {
-				// already raw
-			}
-		}
 		s, err := rn.HandleEvent(ctx, cap.RunID, e)
 		if err != nil {
 			return nil, err
