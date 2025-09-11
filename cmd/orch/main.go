@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wilhg/orch/examples/todo"
 	"github.com/wilhg/orch/pkg/agent"
+	"github.com/wilhg/orch/pkg/errmodel"
 	otto "github.com/wilhg/orch/pkg/otel"
 	"github.com/wilhg/orch/pkg/runtime"
 	"github.com/wilhg/orch/pkg/store"
@@ -75,7 +76,7 @@ func buildMux(st store.Store) *http.ServeMux {
 	// Example: trigger todo reducer/effects through a simple endpoint.
 	mux.HandleFunc("/api/examples/todo", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
 			return
 		}
 		var body struct {
@@ -83,11 +84,11 @@ func buildMux(st store.Store) *http.ServeMux {
 			Payload     json.RawMessage
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			errmodel.WriteHTTP(w, r, errmodel.Validation("bad_json", err.Error(), nil))
 			return
 		}
 		if body.RunID == "" || body.Type == "" {
-			http.Error(w, "run_id and type required", http.StatusBadRequest)
+			errmodel.WriteHTTP(w, r, errmodel.Validation("missing_fields", "run_id and type required", map[string]any{"fields": []string{"run_id", "type"}}))
 			return
 		}
 		runner := runtime.NewRunner(st, todo.Reducer{}, []agent.EffectHandler{todo.LoggerEffect{}}, func(runID string) agent.State { return todo.State{Run: runID} })
@@ -98,7 +99,7 @@ func buildMux(st store.Store) *http.ServeMux {
 		ev.Payload = p
 		s, err := runner.HandleEvent(r.Context(), body.RunID, ev)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errmodel.WriteHTTP(w, r, err)
 			return
 		}
 		writeJSON(w, s)
@@ -122,7 +123,7 @@ func buildMux(st store.Store) *http.ServeMux {
 			// Creating a run is implicit; we persist an initial event for audit.
 			rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: "run_created", CreatedAt: time.Now()}
 			if _, err := st.AppendEvent(r.Context(), rec); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errmodel.WriteHTTP(w, r, err)
 				return
 			}
 			writeJSON(w, map[string]any{"run_id": body.RunID})
@@ -130,56 +131,56 @@ func buildMux(st store.Store) *http.ServeMux {
 			// get state: return events and latest snapshot meta
 			runID := r.URL.Query().Get("run")
 			if runID == "" {
-				http.Error(w, "missing run", http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("missing_run", "missing run", nil))
 				return
 			}
 			events, err := st.ListEvents(r.Context(), runID, 0, 200)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errmodel.WriteHTTP(w, r, err)
 				return
 			}
 			sn, _ := st.LoadLatestSnapshot(r.Context(), runID)
 			writeJSON(w, map[string]any{"events": events, "snapshot": sn})
 		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
 		}
 	})
 
 	// Control plane: pause/resume via event types
 	mux.HandleFunc("/api/runs/pause", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
 			return
 		}
 		var body struct {
 			RunID string `json:"run_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RunID == "" {
-			http.Error(w, "run_id required", http.StatusBadRequest)
+			errmodel.WriteHTTP(w, r, errmodel.Validation("missing_fields", "run_id required", map[string]any{"fields": []string{"run_id"}}))
 			return
 		}
 		rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: "run_paused", CreatedAt: time.Now()}
 		if _, err := st.AppendEvent(r.Context(), rec); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errmodel.WriteHTTP(w, r, err)
 			return
 		}
 		writeJSON(w, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("/api/runs/resume", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
 			return
 		}
 		var body struct {
 			RunID string `json:"run_id"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RunID == "" {
-			http.Error(w, "run_id required", http.StatusBadRequest)
+			errmodel.WriteHTTP(w, r, errmodel.Validation("missing_fields", "run_id required", map[string]any{"fields": []string{"run_id"}}))
 			return
 		}
 		rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: "run_resumed", CreatedAt: time.Now()}
 		if _, err := st.AppendEvent(r.Context(), rec); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			errmodel.WriteHTTP(w, r, err)
 			return
 		}
 		writeJSON(w, map[string]any{"ok": true})
@@ -190,12 +191,12 @@ func buildMux(st store.Store) *http.ServeMux {
 		case http.MethodGet:
 			runID := r.URL.Query().Get("run")
 			if runID == "" {
-				http.Error(w, "missing run", http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("missing_run", "missing run", nil))
 				return
 			}
 			items, err := st.ListEvents(r.Context(), runID, 0, 100)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errmodel.WriteHTTP(w, r, err)
 				return
 			}
 			writeJSON(w, items)
@@ -206,11 +207,11 @@ func buildMux(st store.Store) *http.ServeMux {
 				Payload json.RawMessage `json:"payload"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("bad_json", err.Error(), nil))
 				return
 			}
 			if body.RunID == "" || body.Type == "" {
-				http.Error(w, "run_id and type required", http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("missing_fields", "run_id and type required", map[string]any{"fields": []string{"run_id", "type"}}))
 				return
 			}
 			// Normalize type to lowercase for convention.
@@ -218,12 +219,12 @@ func buildMux(st store.Store) *http.ServeMux {
 			rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: body.Type, Payload: body.Payload, CreatedAt: time.Now()}
 			out, err := st.AppendEvent(r.Context(), rec)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errmodel.WriteHTTP(w, r, err)
 				return
 			}
 			writeJSON(w, out)
 		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
 		}
 	})
 
@@ -232,12 +233,12 @@ func buildMux(st store.Store) *http.ServeMux {
 		case http.MethodGet:
 			runID := r.URL.Query().Get("run")
 			if runID == "" {
-				http.Error(w, "missing run", http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("missing_run", "missing run", nil))
 				return
 			}
 			sn, err := st.LoadLatestSnapshot(r.Context(), runID)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusNotFound)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("not_found", err.Error(), map[string]any{"run_id": runID}))
 				return
 			}
 			writeJSON(w, sn)
@@ -248,22 +249,22 @@ func buildMux(st store.Store) *http.ServeMux {
 				State   json.RawMessage `json:"state"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("bad_json", err.Error(), nil))
 				return
 			}
 			if body.RunID == "" {
-				http.Error(w, "run_id required", http.StatusBadRequest)
+				errmodel.WriteHTTP(w, r, errmodel.Validation("missing_fields", "run_id required", map[string]any{"fields": []string{"run_id"}}))
 				return
 			}
 			sn := store.SnapshotRecord{SnapshotID: uuid.NewString(), RunID: body.RunID, UptoSeq: body.UptoSeq, State: body.State, CreatedAt: time.Now()}
 			out, err := st.SaveSnapshot(r.Context(), sn)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errmodel.WriteHTTP(w, r, err)
 				return
 			}
 			writeJSON(w, out)
 		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
 		}
 	})
 

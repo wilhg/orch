@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/wilhg/orch/pkg/agent"
+	"github.com/wilhg/orch/pkg/errmodel"
 	"github.com/wilhg/orch/pkg/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -71,7 +71,7 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 	))
 	defer span.End()
 	if runID == "" {
-		return nil, errors.New("runID is empty")
+		return nil, errmodel.Validation("missing_run", "runID is empty", nil)
 	}
 	if incoming.ID == "" {
 		incoming.ID = fmt.Sprintf("e-%s-%d", runID, time.Now().UnixNano())
@@ -80,7 +80,7 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 	// 1) Rebuild state by replaying from latest snapshot + subsequent events.
 	current, lastSeq, err := r.replayState(ctx, runID)
 	if err != nil {
-		return nil, err
+		return nil, errmodel.System("store_error", "failed to replay state", map[string]any{"phase": "replay"}, err)
 	}
 
 	// 2) Apply reducer on the incoming event to get next state and intents.
@@ -89,7 +89,7 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 		if _, err := r.st.GetEventByID(ctx, incoming.ID); err == nil {
 			return current, nil
 		} else if err != sql.ErrNoRows {
-			return nil, err
+			return nil, errmodel.System("store_error", "failed to check existing event", map[string]any{"event_id": incoming.ID}, err)
 		}
 	}
 	next, intents, err := r.reducer.Reduce(ctx, current, incoming)
@@ -101,7 +101,7 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 
 	// 3) Append the incoming event to durable log after successful reduction.
 	if _, err := r.st.AppendEvent(ctx, agentEventToRecord(runID, incoming)); err != nil {
-		return nil, err
+		return nil, errmodel.System("store_error", "failed to append incoming event", map[string]any{"event_type": incoming.Type}, err)
 	}
 
 	// 4) Execute intents via handlers, appending any produced events and applying reducer for each.
@@ -127,19 +127,19 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 		evs, err := handler.Handle(ctx, current, it)
 		if err != nil {
 			span.RecordError(err)
-			return nil, err
+			return nil, errmodel.System("effect_error", "effect handler error", map[string]any{"intent": it.Name}, err)
 		}
 		for _, ev := range evs {
 			// append effect event
 			if _, err := r.st.AppendEvent(ctx, agentEventToRecord(runID, ev)); err != nil {
 				span.RecordError(err)
-				return nil, err
+				return nil, errmodel.System("store_error", "failed to append effect event", map[string]any{"event_type": ev.Type}, err)
 			}
 			// apply reducer for effect-produced event to update state deterministically
 			current, _, err = r.applySingle(ctx, current, ev)
 			if err != nil {
 				span.RecordError(err)
-				return nil, err
+				return nil, errmodel.System("reducer_error", "failed to apply reducer", map[string]any{"event_type": ev.Type}, err)
 			}
 			lastSeq++
 		}
@@ -155,7 +155,7 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 				},
 			}
 			if _, err := r.st.AppendEvent(ctx, agentEventToRecord(runID, marker)); err != nil {
-				return nil, err
+				return nil, errmodel.System("store_error", "failed to append idempotency marker", map[string]any{"intent": it.Name}, err)
 			}
 		}
 	}
@@ -164,11 +164,11 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 	if r.snapshotCodec != nil && r.snapshotInterval > 0 {
 		seq, err := r.st.LastSeq(ctx, runID)
 		if err != nil {
-			return nil, err
+			return nil, errmodel.System("store_error", "failed to get last sequence", map[string]any{"run_id": runID}, err)
 		}
 		if seq > 0 && seq%int64(r.snapshotInterval) == 0 {
 			if err := r.saveSnapshot(ctx, runID, seq, current); err != nil {
-				return nil, err
+				return nil, errmodel.System("snapshot_error", "failed to save snapshot", map[string]any{"run_id": runID, "seq": seq}, err)
 			}
 		}
 	}

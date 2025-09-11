@@ -86,3 +86,40 @@ func TestControlPlane_RunLifecycle(t *testing.T) {
 	}
 	_ = res4.Body.Close()
 }
+
+func TestHTTPErrorEnvelope_BadJSON(t *testing.T) {
+	t.Setenv("DATABASE_URL", "sqlite:file:httptest2?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_fk=1")
+	st, err := entstore.Open(t.Context(), "sqlite:file:httptest2?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_fk=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(buildMux(st))
+	defer srv.Close()
+
+	// Send invalid JSON to /api/events
+	res, err := http.Post(srv.URL+"/api/events", "application/json", bytes.NewBufferString("{"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400", res.StatusCode)
+	}
+	var envelope struct {
+		Error struct {
+			Category string `json:"category"`
+			Code     string `json:"code"`
+		} `json:"error"`
+		TraceID string `json:"trace_id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.Category != "validation" || envelope.Error.Code != "bad_json" {
+		t.Fatalf("unexpected error envelope: %+v", envelope)
+	}
+}
