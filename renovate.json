@@ -6,12 +6,12 @@
     {
       "matchManagers": ["gomod"],
       "enabled": true,
-      "groupName": "go dependencies"
+      "groupName": "go dependencies",
+      "automerge": true
     }
   ],
   "labels": ["dependencies", "renovate"],
   "prHourlyLimit": 2,
   "prConcurrentLimit": 5,
-  "automerge": false,
   "dependencyDashboard": true
 }
