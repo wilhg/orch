@@ -194,6 +194,32 @@ func (s *Store) LastSeq(ctx context.Context, runID string) (int64, error) {
 	return rec.Seq, nil
 }
 
+// GetEventByID looks up an event by its stable EventID.
+func (s *Store) GetEventByID(ctx context.Context, eventID string) (store.EventRecord, error) {
+	rec, err := s.client.Event.Query().
+		Where(event.EventID(eventID)).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return store.EventRecord{}, sql.ErrNoRows
+		}
+		return store.EventRecord{}, err
+	}
+	var raw json.RawMessage
+	if rec.Payload != nil {
+		b, _ := json.Marshal(rec.Payload)
+		raw = b
+	}
+	return store.EventRecord{
+		EventID:   rec.EventID,
+		RunID:     rec.RunID,
+		Seq:       rec.Seq,
+		Type:      rec.Type,
+		Payload:   raw,
+		CreatedAt: rec.CreatedAt,
+	}, nil
+}
+
 // SaveSnapshot saves a snapshot; unique per (run_id, upto_seq).
 func (s *Store) SaveSnapshot(ctx context.Context, sn store.SnapshotRecord) (store.SnapshotRecord, error) {
 	var state map[string]any

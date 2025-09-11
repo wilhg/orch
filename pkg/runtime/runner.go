@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,14 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 	}
 
 	// 2) Apply reducer on the incoming event to get next state and intents.
+	// If the incoming event was already recorded (duplicate delivery), skip processing.
+	if incoming.ID != "" {
+		if _, err := r.st.GetEventByID(ctx, incoming.ID); err == nil {
+			return current, nil
+		} else if err != sql.ErrNoRows {
+			return nil, err
+		}
+	}
 	next, intents, err := r.reducer.Reduce(ctx, current, incoming)
 	if err != nil {
 		return nil, err
@@ -63,6 +72,14 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 			// skip unknown intents for now; future: log/metric
 			continue
 		}
+		// Idempotency: if intent has IdempotencyKey, skip if a corresponding marker exists.
+		if it.IdempotencyKey != "" {
+			markerID := intentMarkerEventID(runID, it.IdempotencyKey)
+			if _, err := r.st.GetEventByID(ctx, markerID); err == nil {
+				// already processed
+				continue
+			}
+		}
 		evs, err := handler.Handle(ctx, current, it)
 		if err != nil {
 			return nil, err
@@ -78,6 +95,21 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 				return nil, err
 			}
 			lastSeq++
+		}
+		// After successful handling, write an idempotency marker event to record completion.
+		if it.IdempotencyKey != "" {
+			marker := agent.Event{
+				ID:        intentMarkerEventID(runID, it.IdempotencyKey),
+				Type:      "intent_processed",
+				Timestamp: time.Now().UTC(),
+				Payload: map[string]any{
+					"key":  it.IdempotencyKey,
+					"name": it.Name,
+				},
+			}
+			if _, err := r.st.AppendEvent(ctx, agentEventToRecord(runID, marker)); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -169,4 +201,8 @@ func recordToAgentEvent(er store.EventRecord) (agent.Event, error) {
 		Timestamp: er.CreatedAt,
 		Payload:   v,
 	}, nil
+}
+
+func intentMarkerEventID(runID, key string) string {
+	return fmt.Sprintf("intent-%s-%s", runID, key)
 }

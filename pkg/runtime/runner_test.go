@@ -66,7 +66,6 @@ func decode[T any](payload any, out *T) {
 }
 
 func TestRunner_ApplyEventThenEffects_SQLite(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 
 	st, err := entstore.Open(ctx, "sqlite:file:runtime?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_fk=1")
@@ -105,5 +104,68 @@ func TestRunner_ApplyEventThenEffects_SQLite(t *testing.T) {
 	ts2 := finalState2.(testState)
 	if ts2.Count != 6 {
 		t.Fatalf("final count after second run=%d want 6", ts2.Count)
+	}
+}
+
+func TestRunner_IdempotentIntent_SQLite(t *testing.T) {
+	ctx := context.Background()
+
+	st, err := entstore.Open(ctx, "sqlite:file:runtime-idem?mode=memory&cache=shared&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&_fk=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// Reducer emits an intent with a fixed idempotency key so duplicates are skipped.
+	r := NewRunner(st, reducerWithIdem{}, []agent.EffectHandler{testHandler{}}, func(runID string) agent.State {
+		return testState{runID: runID, Count: 0}
+	})
+
+	runID := "run-idem"
+	ev := agent.Event{ID: "inc1", Type: "inc", Timestamp: time.Now().UTC(), Payload: map[string]any{"n": 1}}
+	if _, err := r.HandleEvent(ctx, runID, ev); err != nil {
+		t.Fatal(err)
+	}
+	// Re-send same trigger; reducer will emit the same idempotent intent, which should be skipped.
+	if _, err := r.HandleEvent(ctx, runID, ev); err != nil {
+		t.Fatal(err)
+	}
+
+	// State should be 3 after first (1 + added 2), unchanged after duplicate.
+	current, _, err := r.replayState(ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := current.(testState)
+	if ts.Count != 3 {
+		t.Fatalf("count=%d want 3 (idempotent)", ts.Count)
+	}
+}
+
+type reducerWithIdem struct{}
+
+func (reducerWithIdem) Reduce(ctx context.Context, current agent.State, event agent.Event) (agent.State, []agent.Intent, error) {
+	st := current.(testState)
+	switch event.Type {
+	case "inc":
+		var p struct {
+			N int `json:"n"`
+		}
+		decode(event.Payload, &p)
+		st.Count += p.N
+		next := testState{runID: st.runID, Count: st.Count}
+		return next, []agent.Intent{{Name: "emit_added", Args: map[string]any{"n": 2}, IdempotencyKey: "add-two"}}, nil
+	case "added":
+		var p struct {
+			N int `json:"n"`
+		}
+		decode(event.Payload, &p)
+		st.Count += p.N
+		return testState{runID: st.runID, Count: st.Count}, nil, nil
+	default:
+		return st, nil, nil
 	}
 }

@@ -31,6 +31,9 @@ type EventStore interface {
 	AppendEvent(ctx context.Context, e EventRecord) (EventRecord, error)
 	ListEvents(ctx context.Context, runID string, afterSeq int64, limit int) ([]EventRecord, error)
 	LastSeq(ctx context.Context, runID string) (int64, error)
+	// GetEventByID returns the event by its stable EventID.
+	// Implementations should return sql.ErrNoRows if the event does not exist.
+	GetEventByID(ctx context.Context, eventID string) (EventRecord, error)
 }
 
 // SnapshotStore defines operations for reading/writing snapshots.
