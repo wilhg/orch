@@ -34,18 +34,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Cosign
+      - name: Install Cosign v2.4.0
         uses: sigstore/cosign-installer@v3
         with:
-          cosign-release: 'v2.2.4'
+          cosign-release: 'v2.4.0'
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@v0.17.7
 
-      - name: Install GoReleaser
+      - name: Install GoReleaser v2.4.0
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          version: v2.4.0
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
