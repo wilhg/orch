@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,10 +52,96 @@ func main() {
 		os.Exit(1)
 	}
 
+	mux := buildMux(st)
+
+	server := &http.Server{Addr: addr, Handler: mux}
+	go func() { _ = server.ListenAndServe() }()
+	<-ctx.Done()
+	_ = server.Shutdown(context.Background())
+}
+
+func buildMux(st store.Store) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
+	})
+
+	// Control plane: create run
+	mux.HandleFunc("/api/runs", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			var body struct {
+				RunID string `json:"run_id"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body.RunID == "" {
+				body.RunID = uuid.NewString()
+			}
+			// Creating a run is implicit; we persist an initial event for audit.
+			rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: "run_created", CreatedAt: time.Now()}
+			if _, err := st.AppendEvent(r.Context(), rec); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, map[string]any{"run_id": body.RunID})
+		case http.MethodGet:
+			// get state: return events and latest snapshot meta
+			runID := r.URL.Query().Get("run")
+			if runID == "" {
+				http.Error(w, "missing run", http.StatusBadRequest)
+				return
+			}
+			events, err := st.ListEvents(r.Context(), runID, 0, 200)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			sn, _ := st.LoadLatestSnapshot(r.Context(), runID)
+			writeJSON(w, map[string]any{"events": events, "snapshot": sn})
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Control plane: pause/resume via event types
+	mux.HandleFunc("/api/runs/pause", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			RunID string `json:"run_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RunID == "" {
+			http.Error(w, "run_id required", http.StatusBadRequest)
+			return
+		}
+		rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: "run_paused", CreatedAt: time.Now()}
+		if _, err := st.AppendEvent(r.Context(), rec); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("/api/runs/resume", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			RunID string `json:"run_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RunID == "" {
+			http.Error(w, "run_id required", http.StatusBadRequest)
+			return
+		}
+		rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: "run_resumed", CreatedAt: time.Now()}
+		if _, err := st.AppendEvent(r.Context(), rec); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true})
 	})
 
 	mux.HandleFunc("/api/events", func(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +172,8 @@ func main() {
 				http.Error(w, "run_id and type required", http.StatusBadRequest)
 				return
 			}
+			// Normalize type to lowercase for convention.
+			body.Type = strings.ToLower(body.Type)
 			rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: body.Type, Payload: body.Payload, CreatedAt: time.Now()}
 			out, err := st.AppendEvent(r.Context(), rec)
 			if err != nil {
@@ -137,10 +226,7 @@ func main() {
 		}
 	})
 
-	server := &http.Server{Addr: addr, Handler: mux}
-	go func() { _ = server.ListenAndServe() }()
-	<-ctx.Done()
-	_ = server.Shutdown(context.Background())
+	return mux
 }
 
 func getEnv(key string, def string) string {
