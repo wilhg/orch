@@ -1,0 +1,21 @@
+# Go
+bin/
+dist/
+build/
+coverage.out
+*.test
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go modules/cache
+vendor/
+go.work
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+
