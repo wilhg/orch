@@ -24,6 +24,11 @@ Scope: Minimal, reliable runtime that executes reducer/effect cycles with durabl
 [T9] Example agent: simple todo or RAG-stub with mock tool (F01, F04)
 [T10] CI with vet, lint, race, unit tests
 
+Refactors (carry into M2/M3)
+- Promote a flow orchestration layer (graph/state machine) atop reducers for complex control flow and resumable steps.
+- Compact error model: structured categories/codes and policies (retry, DLQ, alert) enforced uniformly across runtime and tools.
+- Unify tool permission model for local and MCP tools with identical validation and error semantics.
+
 Exit Criteria
 - `go test ./... -race` passes with core packages >80% coverage
 - End-to-end example run succeeds via HTTP trigger; pause/resume verified without duplicate effects
@@ -49,12 +54,14 @@ Scope: First-class tool calls and prompt management with schema validation and b
 [T5] Extend example to call 1–2 real tools (HTTP call, filesystem sandbox)
 [T6] MCP client support: handshake, listTools/resources/prompts, callTool
 [T7] MCP server support: expose local tools/resources/prompts to external MCP clients
+[T8] ReAct agent template and docs (inspired by Eino) with typed tools and checkpoints
 
 Exit Criteria
 - Invalid tool inputs/outputs produce structured errors in traces (F04-AC1)
 - Prompt update increments version, diff visible; lint blocks bad templates (F02-AC1/2)
 - Offline eval runs on fixtures and reports scores in CI (F02-AC3)
  - MCP conformance tests: client and server modes pass handshake and tool invocation flows (F00-AC6)
+ - ReAct template compiles and passes tests; example run demonstrates reasoning-act-observe loop
 
 Verification Plan
 - Tool schema validation unit tests; permission-denied path tests.
@@ -72,11 +79,13 @@ Scope: Deterministic, observable context assembly with retrieval and caching hoo
 [T2] Embeddings/Vector adapters (OpenAI, pgvector) with pluggable interface
 [T3] Cache layer for retrieval and tool results with TTL and metrics
 [T4] Update example to demonstrate citations and deterministic assembly logs
+[T5] Flow orchestration API (beta): branching, fan-out/fan-in, halt conditions, human interrupts with checkpoints
 
 Exit Criteria
 - Context logs enumerate sources, chunk IDs, token counts (F03-AC1)
 - Dedup works deterministically on repeated sources (F03-AC2)
 - Cache reduces p95 latency vs baseline by documented % (F03-AC3)
+- Flow orchestration demo shows resumable steps and explainable branch rationale
 
 Verification Plan
 - Determinism tests for pinning/dedup/token budget; citation presence.

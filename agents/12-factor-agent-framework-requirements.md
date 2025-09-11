@@ -19,15 +19,18 @@ Applies to core runtime, SDKs, dev tools, and ops components supporting design, 
 
 - F00-R1 (Determinism & Replay): The framework MUST provide deterministic replays of agent runs given the same inputs, tool responses, and model outputs captured as fixtures.
 - F00-R2 (Schema-first): All agent I/O, tool calls, events, state, and errors MUST be described with versioned JSON Schemas.
+- F00-R2.1 (Compact Error Model): Errors MUST be compact and structured with `{category, code, message, context, cause[]}` and a max payload size; truncation policies MUST be defined.
 - F00-R3 (Observability): The framework MUST emit structured logs, metrics, and traces across runs, steps, tool calls, and model invocations.
 - F00-R4 (Idempotency): All triggers and tool integrations MUST support idempotency keys to prevent duplicate side effects.
 - F00-R5 (Security): Secrets MUST be externalized; tools MUST define least-privilege scopes; PII handling MUST be configurable and auditable.
 - F00-R6 (Extensibility): Factors MUST be implementable via extension points (adapters, middlewares, reducers, stores) with stable interfaces.
+- F00-R6.1 (Flow Orchestration): The framework SHOULD provide an optional flow orchestration layer (graphs/state machines) atop reducers for complex control-flow and resumable steps.
 - F00-R7 (MCP Interoperability): The framework MUST implement Model Context Protocol (MCP) client and server modes to interoperate with MCP tool/resource/prompt providers over WebSocket/HTTP.
 
 Acceptance Criteria
 - F00-AC1: Re-run of a captured execution produces identical state transitions and outputs.
 - F00-AC2: JSON Schemas exist for run, step, event, state, tool-call, and error objects with semantic versions.
+- F00-AC2.1: Error objects adhere to the compact error model with category/code and are enforced in CI.
 - F00-AC3: A sample agent exposes logs, metrics, and distributed traces visible in a demo dashboard.
 - F00-AC4: Duplicate delivery of the same trigger does not create duplicate side effects (verified via idempotency key).
 - F00-AC5: Static analysis flags use of secrets in code; secrets are resolved from configuration providers at runtime.
@@ -77,6 +80,7 @@ Requirements
 - F04-R1: Tool outputs MUST be typed objects validated against schemas; parsing errors MUST be first-class.
 - F04-R2: The runtime MUST prevent tool execution on unvalidated or unsafe arguments.
 - F04-R3: Tools MUST declare side-effect categories and required permissions.
+- F04-R4: MCP tool calls MUST route through the same validation/permission checks as local tools with identical error semantics.
 
 Acceptance Criteria
 - F04-AC1: Invalid tool outputs raise structured parse errors captured in traces and error streams.
@@ -125,6 +129,7 @@ Acceptance Criteria
 Requirements
 - F08-R1: Control flow MUST be authored explicitly (state machines/reducers/graphs), not implicitly via raw LLM loops.
 - F08-R2: The runtime MUST support branching, looping, parallelism, and halting criteria.
+- F08-R2.1: Flow orchestration API SHOULD provide resumable steps and human interrupts with checkpoints.
 - F08-R3: Control-flow decisions MUST be explainable with inputs and rationale recorded.
 
 Acceptance Criteria

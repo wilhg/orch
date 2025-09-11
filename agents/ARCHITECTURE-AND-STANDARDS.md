@@ -35,6 +35,7 @@ docs/               # Additional documentation
 - Errors: use `%w` wrapping, sentinel errors for categories, structured fields for context.
 - Logging: structured, leveled logging with `slog` (stdlib) and OTel attributes.
 - Configuration: env-first with config providers; never embed secrets in code.
+- Schema-first: versioned JSON Schemas for events, state, tools, errors; enforce validation at boundaries.
 
 ### API Design: Convention over Configuration
 
@@ -54,6 +55,19 @@ docs/               # Additional documentation
 - Tool calls: schema-validated inputs/outputs, permission-scoped, auditable.
 - Prompt artifacts: versioned, testable, and independently deployed.
 - Observability first: traces across runs, steps, tool calls, model invocations.
+
+Flow orchestration (planned refactor)
+- Explicit flow layer (graph/state machine) above reducers for complex control flow: branching, fan-out/fan-in, halting conditions, and human interrupts.
+- First-class checkpointers and resumability on flow steps (inspired by LangGraph/Eino).
+- Deterministic step function with typed transitions and explainable branch rationale.
+
+Exactly-once semantics (runtime)
+- Idempotent triggers; dedup via idempotency keys.
+- Intent execution claims (deterministic claim event) + completion markers to prevent duplicate side effects under concurrency.
+
+Data model & stores
+- Postgres: prefer JSONB columns for `payload`/`state`.
+- SQLite: text JSON for `payload`/`state` (SQLite JSON functions work on text; JSONB optional in 3.45+).
 
 ### Public Interfaces (minimal signatures)
 
@@ -91,6 +105,19 @@ type Tool interface {
   Invoke(ctx context.Context, args map[string]any) (result map[string]any, err error)
 }
 ```
+
+Error model (compact)
+- Errors are structured: `{ category, code, message, context, cause[] }` with a max payload size and truncation policy.
+- Categories include: validation, tool, network, model, policy, system.
+- Policies: retry/backoff, dead-letter, alert routing by category.
+
+Tool permissions & MCP unification
+- Tool descriptors include JSON Schemas (in/out) and capability/permission descriptors.
+- All tool calls (local or MCP) go through the same validation/permission path with identical error semantics.
+
+Security & secrets
+- Credential providers (env, Vault, cloud SM); no secrets in code/logs.
+- Least-privilege permissions per tool; RBAC at control plane endpoints.
 
 ### Extensibility Model
 - Registry pattern: each pluggable type registers via `RegisterX(name string, factory)`.
