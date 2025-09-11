@@ -42,3 +42,12 @@ fi
   - Run: `go test -tags=integration ./...`.
   - Examples: Postgres container for store; networked tools.
   - Keep tests hermetic and self-cleaning.
+
+## Git commits
+
+- After formatting and tests pass, stage changes from the repository root:
+
+```bash
+git add .
+git commit -m "<type>: <summary>"
+```
