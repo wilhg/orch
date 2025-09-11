@@ -1,0 +1,17 @@
+{
+  "extends": [
+    "config:base"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "enabled": true,
+      "groupName": "go dependencies"
+    }
+  ],
+  "labels": ["dependencies", "renovate"],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+  "automerge": false,
+  "dependencyDashboard": true
+}
