@@ -46,6 +46,17 @@ docs/               # Additional documentation
 - Prompt artifacts: versioned, testable, and independently deployed.
 - Observability first: traces across runs, steps, tool calls, model invocations.
 
+### Convention over Configuration
+The framework follows "convention over configuration" principles to minimize boilerplate and provide sensible defaults while remaining flexible:
+
+- **Naming conventions**: Reducers implement `Reduce()`, effect handlers implement `Handle()`, tools implement `Invoke()`. No complex registration required.
+- **Default behaviors**: State persistence, retry policies, and observability work out-of-the-box with sensible defaults.
+- **File-based configuration**: Agent definitions, prompts, and schemas are loaded from conventional file paths (`agents/*.yaml`, `prompts/*.yaml`).
+- **Environment-based setup**: Database connections, API keys, and feature flags configured via environment variables with clear naming patterns.
+- **Auto-discovery**: Tools, adapters, and effect handlers are automatically discovered and registered based on interface implementation.
+- **Minimal required configuration**: Only essential settings need explicit configuration; everything else uses conventions.
+- **Progressive disclosure**: Simple cases work with zero config; advanced features available through explicit configuration when needed.
+
 ### Public Interfaces (minimal signatures)
 
 ```go
