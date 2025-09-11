@@ -30,36 +30,39 @@ type Store struct {
 // Open opens an ent client using a DATABASE_URL style DSN.
 // Examples:
 //   - postgres:  postgres://user:pass@host:5432/dbname?sslmode=disable
-//   - sqlite:    sqlite:///path/to/db.sqlite?cache=shared&_pragma=busy_timeout(5000)
+//   - sqlite:    sqlite:file:./db.sqlite?cache=shared&_pragma=busy_timeout(5000)
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	if databaseURL == "" {
 		return nil, errors.New("databaseURL is empty")
-	}
-	u, err := url.Parse(databaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("parse dsn: %w", err)
 	}
 	var (
 		drvName string
 		dsn     string
 		dialect string
 	)
-	switch strings.ToLower(u.Scheme) {
-	case "postgres", "postgresql":
-		drvName = "pgx"
-		dsn = databaseURL
-		dialect = "postgres"
-	case "sqlite":
+	lower := strings.ToLower(databaseURL)
+	if strings.HasPrefix(lower, "sqlite:") {
+		// modernc.org/sqlite uses driver name "sqlite" and DSN like file:... or :memory:
 		drvName = "sqlite"
-		// sqlite:///abs/path or sqlite://relative
-		// For modernc.org/sqlite, strip the scheme and use the rest as DSN.
-		dsn = strings.TrimPrefix(databaseURL, "sqlite://")
+		dsn = strings.TrimPrefix(databaseURL, "sqlite:")
 		if dsn == "" {
 			dsn = "file:orch.sqlite?cache=shared&_pragma=busy_timeout(5000)"
 		}
-		dialect = "sqlite"
-	default:
-		return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+		// ent expects sqlite3 dialect token for sqlite family
+		dialect = "sqlite3"
+	} else {
+		u, err := url.Parse(databaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("parse dsn: %w", err)
+		}
+		switch strings.ToLower(u.Scheme) {
+		case "postgres", "postgresql":
+			drvName = "pgx"
+			dsn = databaseURL
+			dialect = "postgres"
+		default:
+			return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+		}
 	}
 
 	db, err := sql.Open(drvName, dsn)
@@ -111,15 +114,17 @@ func (s *Store) AppendEvent(ctx context.Context, e store.EventRecord) (store.Eve
 		}
 	}
 
-	created, err := tx.Event.
+	b := tx.Event.
 		Create().
 		SetEventID(e.EventID).
 		SetRunID(e.RunID).
 		SetSeq(nextSeq).
 		SetType(e.Type).
-		SetNillablePayload(payload).
-		SetCreatedAt(time.Now()).
-		Save(ctx)
+		SetCreatedAt(time.Now())
+	if payload != nil {
+		b = b.SetPayload(payload)
+	}
+	created, err := b.Save(ctx)
 	if err != nil {
 		return store.EventRecord{}, err
 	}
@@ -197,13 +202,15 @@ func (s *Store) SaveSnapshot(ctx context.Context, sn store.SnapshotRecord) (stor
 			return store.SnapshotRecord{}, fmt.Errorf("invalid state json: %w", err)
 		}
 	}
-	created, err := s.client.Snapshot.Create().
+	sb := s.client.Snapshot.Create().
 		SetSnapshotID(sn.SnapshotID).
 		SetRunID(sn.RunID).
 		SetUptoSeq(sn.UptoSeq).
-		SetNillableState(state).
-		SetCreatedAt(time.Now()).
-		Save(ctx)
+		SetCreatedAt(time.Now())
+	if state != nil {
+		sb = sb.SetState(state)
+	}
+	created, err := sb.Save(ctx)
 	if err != nil {
 		return store.SnapshotRecord{}, err
 	}

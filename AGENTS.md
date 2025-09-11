@@ -31,3 +31,14 @@ if [ -n "$unformatted" ]; then
   exit 1
 fi
 ```
+
+## Testing & TDD
+
+- Practice TDD: write unit tests first, then implement code.
+- Default command: `go test ./... -race -shuffle=on`.
+- Coverage gates are enforced in CI; raise thresholds over time.
+- Unit tests SHOULD avoid external deps; prefer in-memory SQLite for store logic.
+- Integration tests MUST use `testcontainers-go` and are guarded by a build tag:
+  - Run: `go test -tags=integration ./...`.
+  - Examples: Postgres container for store; networked tools.
+  - Keep tests hermetic and self-cleaning.
