@@ -52,12 +52,6 @@ jobs:
         if: ${{ hashFiles('**/*.go') != '' }}
         run: go vet ./...
 
-      - name: Staticcheck
-        if: ${{ hashFiles('**/*.go') != '' }}
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          $(go env GOPATH)/bin/staticcheck ./...
-
       - name: Install golangci-lint
         if: ${{ hashFiles('**/*.go') != '' }}
         run: |
