@@ -2,43 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-
-jobs:
-  build-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.x'
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - name: Vet
-        run: go vet ./...
-      - name: Lint (staticcheck)
-        run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
-      - name: Test (race, shuffle)
-        run: go test ./... -race -shuffle=on
-      - name: Coverage
-        run: |
-          go test ./... -coverprofile=coverage.out -covermode=atomic
-          go tool cover -func=coverage.out | tee coverage.txt
-          awk '/total:/ { if ($3+0 < 0.80) { print "coverage below 80%:" $3; exit 1 } }' coverage.txt
-name: CI
-
-on:
-  push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
@@ -99,7 +62,7 @@ jobs:
         run: |
           $(go env GOPATH)/bin/golangci-lint run --timeout=5m
 
-      - name: Run tests
+      - name: Run tests (race, coverage)
         if: ${{ hashFiles('**/*.go') != '' }}
         run: |
           go test ./... -race -coverprofile=coverage.out -covermode=atomic
@@ -114,7 +77,7 @@ jobs:
       - name: Coverage gate
         if: ${{ hashFiles('coverage.out') != '' }}
         env:
-          COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '0' }}
+          COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '80' }}
         run: |
           total=$(go tool cover -func=coverage.out | awk '/total:/ {print substr($3, 1, length($3)-1)}')
           threshold="${COVERAGE_THRESHOLD}"
