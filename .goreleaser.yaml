@@ -1,0 +1,60 @@
+project_name: orch
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: orch
+    main: ./cmd/orch
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags: [ -trimpath ]
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+sboms:
+  - id: syft
+    artifacts: [ archive ]
+    cmd: syft
+
+signs:
+  - cmd: cosign
+    artifact: checksum
+    args: ["sign-blob", "--yes", "--output-signature", "{{ .Signature }}", "--output-certificate", "{{ .Certificate }}", "{{ .ArtifactPath }}"]
+
+dockers:
+  - image_templates:
+      - ghcr.io/{{ .RepoOwner }}/{{ .ProjectName }}:{{ .Version }}
+      - ghcr.io/{{ .RepoOwner }}/{{ .ProjectName }}:latest
+    use: buildx
+    dockerfile: ./Dockerfile
+    build_flag_templates:
+      - --platform=linux/amd64,linux/arm64
+    extra_files:
+      - README.md
+
+release:
+  draft: false
+  prerelease: auto
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: Cache Go build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Go fmt check
+        if: ${{ hashFiles('**/*.go') != '' }}
+        run: |
+          fmt_out=$(gofmt -s -l . || true)
+          if [ -n "$fmt_out" ]; then
+            echo "Files not gofmt-ed:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: Download modules
+        if: ${{ hashFiles('**/go.mod') != '' }}
+        run: go mod download
+
+      - name: Go vet
+        if: ${{ hashFiles('**/*.go') != '' }}
+        run: go vet ./...
+
+      - name: Staticcheck
+        if: ${{ hashFiles('**/*.go') != '' }}
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          $(go env GOPATH)/bin/staticcheck ./...
+
+      - name: GolangCI-Lint
+        if: ${{ hashFiles('**/*.go') != '' }}
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Run tests
+        if: ${{ hashFiles('**/*.go') != '' }}
+        run: |
+          go test ./... -race -coverprofile=coverage.out -covermode=atomic
+
+      - name: Upload coverage artifact
+        if: ${{ hashFiles('**/*.go') != '' && hashFiles('coverage.out') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+      - name: Coverage gate
+        if: ${{ hashFiles('coverage.out') != '' }}
+        env:
+          COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '0' }}
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/total:/ {print substr($3, 1, length($3)-1)}')
+          threshold="${COVERAGE_THRESHOLD}"
+          awk -v t="$threshold" -v a="$total" 'BEGIN{ if (a+0 < t+0) { printf("Coverage %.2f%% is below threshold %.2f%%\n", a, t); exit 1 } else { printf("Coverage %.2f%% meets threshold %.2f%%\n", a, t) } }'
+
+
