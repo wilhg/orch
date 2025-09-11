@@ -10,6 +10,9 @@ import (
 
 	"github.com/wilhg/orch/pkg/agent"
 	"github.com/wilhg/orch/pkg/store"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // StateFactory creates an initial state for a given run.
@@ -60,6 +63,13 @@ func NewRunner(st store.Store, r agent.Reducer, handlers []agent.EffectHandler, 
 // dispatches intents to effect handlers, and appends resulting events.
 // Returns the final state after processing the entire cycle.
 func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.Event) (agent.State, error) {
+	tr := otel.Tracer("runtime/runner")
+	ctx, span := tr.Start(ctx, "Runner.HandleEvent", trace.WithAttributes(
+		attribute.String("run.id", runID),
+		attribute.String("event.id", incoming.ID),
+		attribute.String("event.type", incoming.Type),
+	))
+	defer span.End()
 	if runID == "" {
 		return nil, errors.New("runID is empty")
 	}
@@ -84,6 +94,7 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 	}
 	next, intents, err := r.reducer.Reduce(ctx, current, incoming)
 	if err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 	current = next
@@ -110,16 +121,19 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 		}
 		evs, err := handler.Handle(ctx, current, it)
 		if err != nil {
+			span.RecordError(err)
 			return nil, err
 		}
 		for _, ev := range evs {
 			// append effect event
 			if _, err := r.st.AppendEvent(ctx, agentEventToRecord(runID, ev)); err != nil {
+				span.RecordError(err)
 				return nil, err
 			}
 			// apply reducer for effect-produced event to update state deterministically
 			current, _, err = r.applySingle(ctx, current, ev)
 			if err != nil {
+				span.RecordError(err)
 				return nil, err
 			}
 			lastSeq++

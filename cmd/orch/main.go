@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wilhg/orch/pkg/store"
 	"github.com/wilhg/orch/pkg/store/entstore"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -54,7 +55,7 @@ func main() {
 
 	mux := buildMux(st)
 
-	server := &http.Server{Addr: addr, Handler: mux}
+	server := &http.Server{Addr: addr, Handler: otelhttp.NewHandler(mux, "http.server")}
 	go func() { _ = server.ListenAndServe() }()
 	<-ctx.Done()
 	_ = server.Shutdown(context.Background())
