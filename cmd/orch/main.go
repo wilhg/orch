@@ -1,10 +1,19 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/wilhg/orch/pkg/store"
+	"github.com/wilhg/orch/pkg/store/entstore"
 )
 
 var (
@@ -16,14 +25,30 @@ var (
 func main() {
 	var showVersion bool
 	var addr string
+	var databaseURL string
 
 	flag.BoolVar(&showVersion, "version", false, "print version and exit")
 	flag.StringVar(&addr, "addr", getEnv("ORCH_ADDR", ":8080"), "http listen address")
+	flag.StringVar(&databaseURL, "database", getEnv("DATABASE_URL", "sqlite:file:orch.sqlite?_fk=1&cache=shared&_pragma=busy_timeout(5000)"), "database url (sqlite or postgres)")
 	flag.Parse()
 
 	if showVersion {
 		fmt.Printf("orch %s (commit=%s, date=%s)\n", version, commit, date)
 		return
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	st, err := entstore.Open(ctx, databaseURL)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "store open error: %v\n", err)
+		os.Exit(1)
+	}
+	defer st.Close()
+	if err := st.Migrate(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "migrate error: %v\n", err)
+		os.Exit(1)
 	}
 
 	mux := http.NewServeMux()
@@ -32,11 +57,90 @@ func main() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	mux.HandleFunc("/api/events", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			runID := r.URL.Query().Get("run")
+			if runID == "" {
+				http.Error(w, "missing run", http.StatusBadRequest)
+				return
+			}
+			items, err := st.ListEvents(r.Context(), runID, 0, 100)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, items)
+		case http.MethodPost:
+			var body struct {
+				RunID   string          `json:"run_id"`
+				Type    string          `json:"type"`
+				Payload json.RawMessage `json:"payload"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if body.RunID == "" || body.Type == "" {
+				http.Error(w, "run_id and type required", http.StatusBadRequest)
+				return
+			}
+			rec := store.EventRecord{EventID: uuid.NewString(), RunID: body.RunID, Type: body.Type, Payload: body.Payload, CreatedAt: time.Now()}
+			out, err := st.AppendEvent(r.Context(), rec)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, out)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			runID := r.URL.Query().Get("run")
+			if runID == "" {
+				http.Error(w, "missing run", http.StatusBadRequest)
+				return
+			}
+			sn, err := st.LoadLatestSnapshot(r.Context(), runID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			writeJSON(w, sn)
+		case http.MethodPost:
+			var body struct {
+				RunID   string          `json:"run_id"`
+				UptoSeq int64           `json:"upto_seq"`
+				State   json.RawMessage `json:"state"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if body.RunID == "" {
+				http.Error(w, "run_id required", http.StatusBadRequest)
+				return
+			}
+			sn := store.SnapshotRecord{SnapshotID: uuid.NewString(), RunID: body.RunID, UptoSeq: body.UptoSeq, State: body.State, CreatedAt: time.Now()}
+			out, err := st.SaveSnapshot(r.Context(), sn)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, out)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	server := &http.Server{Addr: addr, Handler: mux}
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
-		os.Exit(1)
-	}
+	go func() { _ = server.ListenAndServe() }()
+	<-ctx.Done()
+	_ = server.Shutdown(context.Background())
 }
 
 func getEnv(key string, def string) string {
@@ -44,4 +148,9 @@ func getEnv(key string, def string) string {
 		return v
 	}
 	return def
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(v)
 }
