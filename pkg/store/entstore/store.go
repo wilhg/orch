@@ -14,7 +14,8 @@ import (
 
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "modernc.org/sqlite"
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 
 	"github.com/wilhg/orch/internal/ent"
 	"github.com/wilhg/orch/internal/ent/event"
@@ -42,8 +43,8 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	)
 	lower := strings.ToLower(databaseURL)
 	if strings.HasPrefix(lower, "sqlite:") {
-		// modernc.org/sqlite uses driver name "sqlite" and DSN like file:... or :memory:
-		drvName = "sqlite"
+		// ncruces/go-sqlite3 uses driver name "sqlite3" and DSN like file:... or :memory:
+		drvName = "sqlite3"
 		dsn = strings.TrimPrefix(databaseURL, "sqlite:")
 		if dsn == "" {
 			dsn = "file:orch.sqlite?cache=shared&_pragma=busy_timeout(5000)"
