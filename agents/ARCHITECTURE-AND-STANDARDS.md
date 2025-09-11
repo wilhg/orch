@@ -204,9 +204,54 @@ type MCPServer interface {
 - First-class docs and code snippets; minimal working examples in each package.
 
 ### Learning from Existing Tools
-- LangChain/LangGraph: explicit graphs/state machines; adopt reducer purity and typed tools; avoid implicit loops.
-- AutoGen: multi-agent orchestration; provide message-passing patterns as templates.
-- n8n: node-based extensibility; adopt plugin marketplace model and JSON-defined nodes/tools.
+
+- LangChain / LangGraph ([repo](https://github.com/langchain-ai/langgraph), [docs](https://github.com/langchain-ai/langgraph/tree/main/docs))
+  - **Graph-based orchestration**: explicit DAG/graph of nodes with state channels; deterministic step function and resumability.
+  - **Checkpointers & interrupts**: first-class pause/resume and human-in-the-loop interruption/continuations; persistent graph state.
+  - **Typed tools & schema validation**: tool calling with structured inputs/outputs; safer execution path.
+  - **Streaming and concurrency**: streaming tokens/events through the graph; controlled concurrency and backpressure.
+  - What we adopt: reducer-centric purity with explicit state transitions, typed tools, checkpoint interfaces, resumable steps.
+
+- Microsoft AutoGen ([repo](https://github.com/microsoft/autogen))
+  - **Multi-agent conversation patterns**: reusable templates (e.g., Assistant <-> User Proxy, GroupChat) for collaboration and role specialization.
+  - **Tool/Code execution loop**: built-in code execution and tool invocation patterns to close the loop on tasks.
+  - **Human feedback**: easy insertion of human messages/approvals into agent conversations.
+  - **Extensibility**: compose custom agents, termination conditions, and routing strategies.
+  - What we adopt: message-passing patterns, termination conditions, human approvals, and permissive tool routing.
+
+- n8n ([repo](https://github.com/n8n-io/n8n), [docs](https://github.com/n8n-io/n8n-docs))
+  - **Node-based low-code UX**: clear node abstraction with triggers/actions; composability encourages ecosystem growth.
+  - **Marketplace & versioned nodes**: contribution pipeline for third-party nodes, semantic versioning, and upgrade paths.
+  - **Credentials & secrets**: centralized credential management and scoped permissions per node.
+  - **Executions, retries, and backoff**: operational visibility, retry strategies, and failure handling out of the box.
+  - What we adopt: plugin registry + capability descriptors, credential scoping, retries/backoff, and execution logs/inspectability.
+
+- LlamaIndex ([repo](https://github.com/run-llama/llama_index))
+  - **Data framework and indices**: composable indices, retrievers, and query engines; modular storage.
+  - **Graph/RAG patterns**: graph-based retrieval (GraphRAG), routing, and structured context assembly.
+  - **Observability & eval**: tracing hooks and evaluation utilities for RAG quality.
+  - What we adopt: deterministic context assembly with pinning/dedup/token budgeting and observability hooks.
+
+- Microsoft Semantic Kernel ([repo](https://github.com/microsoft/semantic-kernel))
+  - **Plugins/functions model**: strongly-typed functions/plugins with parameter schemas and planners.
+  - **Orchestration**: planners, connectors, and multi-agent collaboration patterns across .NET/Python.
+  - **Enterprise alignment**: RBAC, connectors, and production-friendly patterns.
+  - What we adopt: typed plugin interfaces, planners as optional schedulers, and enterprise-grade connectors and RBAC patterns.
+
+- CloudWeGo Eino (ByteDance) ([repo](https://github.com/cloudwego/eino), [docs](https://www.cloudwego.io/docs/eino/))
+  - **Componentized architecture**: clear component definitions (LLM, tools, memory, retrieval) enabling provider swap and composition.
+  - **Flow orchestration**: first-class orchestration primitives to compose complex AI pipelines cleanly.
+  - **ReAct agent implementation**: standardized reasoning/acting loop with flexible tool/memory integration ([React Agent Manual](https://www.cloudwego.io/docs/eino/core_modules/flow_integration_components/react_agent_manual/)).
+  - **Production-hardened**: evolved from internal ByteDance usage with attention to maintainability and scale ([open-source announcement](https://cloudwego.cn/docs/eino/overview/eino_open_source/)).
+  - What we adopt: strong component contracts, orchestration separated from components, ReAct template, scalable enterprise practices.
+
+References (GitHub):
+- LangGraph: https://github.com/langchain-ai/langgraph
+- AutoGen: https://github.com/microsoft/autogen
+- n8n: https://github.com/n8n-io/n8n, https://github.com/n8n-io/n8n-docs
+- LlamaIndex: https://github.com/run-llama/llama_index
+- Semantic Kernel: https://github.com/microsoft/semantic-kernel
+- Eino: https://github.com/cloudwego/eino, https://www.cloudwego.io/docs/eino/
 
 ### Versioning & Compatibility
 - Semantic versioning for public Go APIs in `pkg/`.
