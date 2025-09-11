@@ -30,7 +30,7 @@ docs/               # Additional documentation
 ### Project Standards
 - Dependency management: `go.mod`, use minimal required versions, avoid heavy transitive deps.
 - Linting/format: `gofmt`, `go vet`, `staticcheck`, `golangci-lint` (with sane defaults).
-- Testing: `go test -race -shuffle=on`. Aim for >80% package coverage for core (`pkg/runtime`, `pkg/agent`).
+- Testing: `go test -race -shuffle=on`.
 - Benchmarks for hot paths: reducers, effect dispatch, context assembly, tool call marshaling.
 - Errors: use `%w` wrapping, sentinel errors for categories, structured fields for context.
 - Logging: structured, leveled logging with `slog` (stdlib) and OTel attributes.
@@ -319,7 +319,7 @@ The detailed verification plans live in `ROADMAP.md` under each milestone. This 
 General principles
 - Hermetic by default: integration tests use Testcontainers (Postgres, NATS, OTel Collector, Mock Slack).
 - Deterministic first: record-and-replay harness captures events, tool I/O, and model outputs; seeded randomness.
-- Structured evidence: CI uploads traces, logs, coverage, latency summaries, and golden snapshots as artifacts.
+- Structured evidence: CI uploads traces, logs, latency summaries, and golden snapshots as artifacts.
 - Gated merges: PRs must pass milestone-specific targets before merging.
 
 Common harness

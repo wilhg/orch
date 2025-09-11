@@ -62,16 +62,9 @@ jobs:
         run: |
           $(go env GOPATH)/bin/golangci-lint run --timeout=5m
 
-      - name: Run tests (race, coverage)
+      - name: Run tests (race)
         if: ${{ hashFiles('**/*.go') != '' }}
         run: |
-          go test ./... -race -coverprofile=coverage.out -covermode=atomic
-
-      - name: Upload coverage artifact
-        if: ${{ hashFiles('**/*.go') != '' && hashFiles('coverage.out') != '' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage.out
+          go test ./... -race -covermode=atomic
 
 

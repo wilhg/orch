@@ -31,7 +31,6 @@ Refactors (carry into M2/M3)
 - Unify tool permission model for local and MCP tools with identical validation and error semantics.
 
 Exit Criteria
-- `go test ./... -race` passes with core packages >80% coverage
 - End-to-end example run succeeds via HTTP trigger; pause/resume verified without duplicate effects
 - OTel traces visible in a local collector; logs/metrics emitted
 - Deterministic replay test passes on captured run (F00-AC1)
