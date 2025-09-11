@@ -35,7 +35,7 @@ Exit Criteria
 - End-to-end example run succeeds via HTTP trigger; pause/resume verified without duplicate effects
 - OTel traces visible in a local collector; logs/metrics emitted
 - Deterministic replay test passes on captured run (F00-AC1)
- - Errors returned by runtime and control plane conform to compact error model (F09-AC1)
+- Errors returned by runtime and control plane conform to compact error model (F09-AC1)
 
 Verification Plan
 - Unit: reducers/effects with golden snapshot diffs; registry and idempotency guards.
@@ -57,14 +57,12 @@ Scope: First-class tool calls and prompt management with schema validation and b
 [T6] MCP client support: handshake, listTools/resources/prompts, callTool
 [T7] MCP server support: expose local tools/resources/prompts to external MCP clients
 [T8] ReAct agent template and docs (inspired by Eino) with typed tools and checkpoints
-[T8] ReAct agent template and docs (inspired by Eino) with typed tools and checkpoints
 
 Exit Criteria
 - Invalid tool inputs/outputs produce structured errors in traces (F04-AC1)
 - Prompt update increments version, diff visible; lint blocks bad templates (F02-AC1/2)
 - Offline eval runs on fixtures and reports scores in CI (F02-AC3)
  - MCP conformance tests: client and server modes pass handshake and tool invocation flows (F00-AC6)
- - ReAct template compiles and passes tests; example run demonstrates reasoning-act-observe loop
  - ReAct template compiles and passes tests; example run demonstrates reasoning-act-observe loop
 
 Verification Plan
@@ -83,7 +81,6 @@ Scope: Deterministic, observable context assembly with retrieval and caching hoo
 [T2] Embeddings/Vector adapters (OpenAI, pgvector) with pluggable interface
 [T3] Cache layer for retrieval and tool results with TTL and metrics
 [T4] Update example to demonstrate citations and deterministic assembly logs
-[T5] Flow orchestration API (beta): branching, fan-out/fan-in, halt conditions, human interrupts with checkpoints
 [T5] Flow orchestration API (beta): branching, fan-out/fan-in, halt conditions, human interrupts with checkpoints
 
 Exit Criteria
