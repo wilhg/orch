@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version: '1.25'
           check-latest: true
 
       - name: Cache Go build
@@ -58,12 +58,15 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@latest
           $(go env GOPATH)/bin/staticcheck ./...
 
-      - name: GolangCI-Lint
+      - name: Install golangci-lint
         if: ${{ hashFiles('**/*.go') != '' }}
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+
+      - name: Run golangci-lint
+        if: ${{ hashFiles('**/*.go') != '' }}
+        run: |
+          $(go env GOPATH)/bin/golangci-lint run --timeout=5m
 
       - name: Run tests
         if: ${{ hashFiles('**/*.go') != '' }}
