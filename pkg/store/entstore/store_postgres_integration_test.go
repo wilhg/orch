@@ -10,6 +10,7 @@ import (
 	"time"
 
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/wilhg/orch/pkg/store"
 )
 
 func TestPostgresEventFlow(t *testing.T) {
