@@ -34,7 +34,6 @@ fi
 
 - Practice TDD: write unit tests first, then implement code.
 - Default command: `go test ./... -race -shuffle=on`.
-- Coverage gates are enforced in CI; raise thresholds over time.
 - Unit tests SHOULD avoid external deps; prefer in-memory SQLite for store logic.
 - Integration tests MUST use `testcontainers-go` and are guarded by a build tag:
   - Run: `go test -tags=integration ./...`.

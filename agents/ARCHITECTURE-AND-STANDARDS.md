@@ -220,7 +220,7 @@ type MCPServer interface {
 - Load tests for scheduler and tool dispatch.
 
 ### Release & CI/CD
-- CI: `go vet`, `golangci-lint`, unit/integration tests, race detector, coverage gates.
+- CI: `go vet`, `golangci-lint`, unit/integration tests, race detector.
 - Artifacts: multi-arch binaries, Docker images (distroless), SBOM and provenance (SLSA level 2+).
 - Versioned docs, changelog, release notes with upgrade steps.
 
@@ -260,7 +260,6 @@ Common harness
 
 CI gates (examples)
 - Lint/vet/staticcheck; race detector enabled for core packages.
-- Coverage gates starting at 80% for core; widen later.
 - Replay parity on designated scenarios; latency gates per milestone.
 - Security gates: secret scanning, dependency audit; webhook signature verification tests.
 

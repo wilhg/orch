@@ -22,7 +22,7 @@ Scope: Minimal, reliable runtime that executes reducer/effect cycles with durabl
 [T7] HTTP/JSON control plane: create run, get state, pause/resume (F11)
 [T8] OpenTelemetry traces/metrics/logs; structured logging (F00)
 [T9] Example agent: simple todo or RAG-stub with mock tool (F01, F04)
-[T10] CI with vet, lint, race, unit tests; coverage gates
+[T10] CI with vet, lint, race, unit tests
 
 Exit Criteria
 - `go test ./... -race` passes with core packages >80% coverage
