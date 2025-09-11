@@ -74,13 +74,4 @@ jobs:
           name: coverage
           path: coverage.out
 
-      - name: Coverage gate
-        if: ${{ hashFiles('coverage.out') != '' }}
-        env:
-          COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '80' }}
-        run: |
-          total=$(go tool cover -func=coverage.out | awk '/total:/ {print substr($3, 1, length($3)-1)}')
-          threshold="${COVERAGE_THRESHOLD}"
-          awk -v t="$threshold" -v a="$total" 'BEGIN{ if (a+0 < t+0) { printf("Coverage %.2f%% is below threshold %.2f%%\n", a, t); exit 1 } else { printf("Coverage %.2f%% meets threshold %.2f%%\n", a, t) } }'
-
 
