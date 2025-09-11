@@ -36,6 +36,15 @@ docs/               # Additional documentation
 - Logging: structured, leveled logging with `slog` (stdlib) and OTel attributes.
 - Configuration: env-first with config providers; never embed secrets in code.
 
+### API Design: Convention over Configuration
+
+- Default-first APIs: provide sensible defaults so most users need zero config.
+- Explicit overrides: advanced behavior is enabled via functional options, not required params.
+- Predictable naming and behavior: follow Go idioms and consistent naming across packages.
+- Minimal knobs: avoid unnecessary flags; add them only when there is a proven need.
+- Safe defaults: concurrency, timeouts, retries, and idempotency are enabled with conservative values.
+- Discoverability: defaults and available options are documented in Godoc and examples.
+
 ### Core Architectural Concepts
 - Reducer-centric runtime: `nextState = reducer(currentState, event)`; reducers are pure.
 - Effect handlers execute intents emitted by reducers; idempotent and retry-aware.
@@ -45,17 +54,6 @@ docs/               # Additional documentation
 - Tool calls: schema-validated inputs/outputs, permission-scoped, auditable.
 - Prompt artifacts: versioned, testable, and independently deployed.
 - Observability first: traces across runs, steps, tool calls, model invocations.
-
-### Convention over Configuration
-The framework follows "convention over configuration" principles to minimize boilerplate and provide sensible defaults while remaining flexible:
-
-- **Naming conventions**: Reducers implement `Reduce()`, effect handlers implement `Handle()`, tools implement `Invoke()`. No complex registration required.
-- **Default behaviors**: State persistence, retry policies, and observability work out-of-the-box with sensible defaults.
-- **File-based configuration**: Agent definitions, prompts, and schemas are loaded from conventional file paths (`agents/*.yaml`, `prompts/*.yaml`).
-- **Environment-based setup**: Database connections, API keys, and feature flags configured via environment variables with clear naming patterns.
-- **Auto-discovery**: Tools, adapters, and effect handlers are automatically discovered and registered based on interface implementation.
-- **Minimal required configuration**: Only essential settings need explicit configuration; everything else uses conventions.
-- **Progressive disclosure**: Simple cases work with zero config; advanced features available through explicit configuration when needed.
 
 ### Public Interfaces (minimal signatures)
 
