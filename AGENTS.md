@@ -1,6 +1,4 @@
-Read agents/12-factor-agent-framework-requirements.md
-Read agents/ARCHITECTURE-AND-STANDARDS.md
-Read agents/ROADMAP.md
+Read all .md docs under ./agents/ folder
 
 ## Go 1.25 Guidance
 
