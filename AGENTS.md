@@ -49,3 +49,13 @@ fi
 git add .
 git commit -m "<type>: <summary>"
 ```
+
+## Quickstart
+
+See `README.md` for the 5-minute quickstart. To drive the example todo agent:
+
+```bash
+RUN_ID=$(curl -sX POST http://localhost:8080/api/runs | jq -r .run_id)
+curl -sX POST http://localhost:8080/api/examples/todo -H 'content-type: application/json' \
+  -d '{"RunID":"'"$RUN_ID"'","Type":"complete_task","Payload":{"title":"demo"}}'
+```
