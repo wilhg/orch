@@ -14,3 +14,20 @@ Read agents/ROADMAP.md
 - **Go 1.25 Blog**: [go.dev/blog/go1.25](https://go.dev/blog/go1.25)
 - **Container-aware GOMAXPROCS**: [go.dev/blog/container-aware-gomaxprocs](https://go.dev/blog/container-aware-gomaxprocs)
 - **Core types spec note**: [go.dev/blog/coretypes](https://go.dev/blog/coretypes)
+
+## Code formatting
+
+- Always format code before committing.
+- Run: `gofmt -s -w .` (or `go fmt ./...`) before `git commit`.
+- Optional pre-commit hook (`.git/hooks/pre-commit`):
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+unformatted=$(gofmt -s -l .)
+if [ -n "$unformatted" ]; then
+  echo "These files need gofmt:" >&2
+  echo "$unformatted" >&2
+  exit 1
+fi
+```
