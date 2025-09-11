@@ -126,6 +126,25 @@ func (s *Store) AppendEvent(ctx context.Context, e store.EventRecord) (store.Eve
 	}
 	created, err := b.Save(ctx)
 	if err != nil {
+		// If duplicate event_id, return existing record (idempotent append).
+		if ent.IsConstraintError(err) {
+			existing, gerr := tx.Event.Query().Where(event.EventID(e.EventID)).First(ctx)
+			if gerr == nil {
+				var raw2 json.RawMessage
+				if existing.Payload != nil {
+					bb, _ := json.Marshal(existing.Payload)
+					raw2 = bb
+				}
+				return store.EventRecord{
+					EventID:   existing.EventID,
+					RunID:     existing.RunID,
+					Seq:       existing.Seq,
+					Type:      existing.Type,
+					Payload:   raw2,
+					CreatedAt: existing.CreatedAt,
+				}, nil
+			}
+		}
 		return store.EventRecord{}, err
 	}
 	if err := tx.Commit(); err != nil {

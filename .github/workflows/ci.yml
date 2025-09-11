@@ -2,6 +2,43 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Vet
+        run: go vet ./...
+      - name: Lint (staticcheck)
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+      - name: Test (race, shuffle)
+        run: go test ./... -race -shuffle=on
+      - name: Coverage
+        run: |
+          go test ./... -coverprofile=coverage.out -covermode=atomic
+          go tool cover -func=coverage.out | tee coverage.txt
+          awk '/total:/ { if ($3+0 < 0.80) { print "coverage below 80%:" $3; exit 1 } }' coverage.txt
+name: CI
+
+on:
+  push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]

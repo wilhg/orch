@@ -113,10 +113,15 @@ func (r *Runner) HandleEvent(ctx context.Context, runID string, incoming agent.E
 		}
 		// Idempotency: if intent has IdempotencyKey, skip if a corresponding marker exists.
 		if it.IdempotencyKey != "" {
-			markerID := intentMarkerEventID(runID, it.IdempotencyKey)
-			if _, err := r.st.GetEventByID(ctx, markerID); err == nil {
-				// already processed
-				continue
+			// Step 1: try to claim intent atomically by inserting a claim event with a deterministic ID.
+			claimID := intentClaimEventID(runID, it.IdempotencyKey)
+			_, err := r.st.AppendEvent(ctx, store.EventRecord{EventID: claimID, RunID: runID, Type: "intent_claimed", CreatedAt: time.Now().UTC()})
+			if err != nil {
+				// If duplicate claim (event_id unique), skip.
+				if _, gerr := r.st.GetEventByID(ctx, claimID); gerr == nil {
+					continue
+				}
+				return nil, err
 			}
 		}
 		evs, err := handler.Handle(ctx, current, it)
@@ -257,6 +262,10 @@ func recordToAgentEvent(er store.EventRecord) (agent.Event, error) {
 
 func intentMarkerEventID(runID, key string) string {
 	return fmt.Sprintf("intent-%s-%s", runID, key)
+}
+
+func intentClaimEventID(runID, key string) string {
+	return fmt.Sprintf("intent-claim-%s-%s", runID, key)
 }
 
 func (r *Runner) saveSnapshot(ctx context.Context, runID string, upto int64, s agent.State) error {

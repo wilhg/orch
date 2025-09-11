@@ -13,6 +13,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/wilhg/orch/examples/todo"
+	"github.com/wilhg/orch/pkg/agent"
+	otto "github.com/wilhg/orch/pkg/otel"
+	"github.com/wilhg/orch/pkg/runtime"
 	"github.com/wilhg/orch/pkg/store"
 	"github.com/wilhg/orch/pkg/store/entstore"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -42,6 +46,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Initialize OpenTelemetry (stdout in dev if ORCH_OTEL_STDOUT=1)
+	if shutdown, err := otto.Init(ctx, otto.Config{ServiceName: "orch", UseStdout: os.Getenv("ORCH_OTEL_STDOUT") == "1"}); err == nil {
+		defer func() { _ = shutdown(context.Background()) }()
+	}
+
 	st, err := entstore.Open(ctx, databaseURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "store open error: %v\n", err)
@@ -63,6 +72,37 @@ func main() {
 
 func buildMux(st store.Store) *http.ServeMux {
 	mux := http.NewServeMux()
+	// Example: trigger todo reducer/effects through a simple endpoint.
+	mux.HandleFunc("/api/examples/todo", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			RunID, Type string
+			Payload     json.RawMessage
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if body.RunID == "" || body.Type == "" {
+			http.Error(w, "run_id and type required", http.StatusBadRequest)
+			return
+		}
+		runner := runtime.NewRunner(st, todo.Reducer{}, []agent.EffectHandler{todo.LoggerEffect{}}, func(runID string) agent.State { return todo.State{Run: runID} })
+		ev := agent.Event{ID: uuid.NewString(), Type: strings.ToLower(body.Type), Timestamp: time.Now().UTC()}
+		// decode payload into generic map
+		var p any
+		_ = json.Unmarshal(body.Payload, &p)
+		ev.Payload = p
+		s, err := runner.HandleEvent(r.Context(), body.RunID, ev)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, s)
+	})
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
