@@ -74,6 +74,31 @@ func main() {
 
 func buildMux(st store.Store) *http.ServeMux {
 	mux := http.NewServeMux()
+	// Example: trigger a tool via ToolEffectHandler
+	mux.HandleFunc("/api/examples/tool", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			errmodel.WriteHTTP(w, r, errmodel.Policy("method_not_allowed", "method not allowed", nil))
+			return
+		}
+		var body struct {
+			RunID string         `json:"run_id"`
+			Name  string         `json:"name"`
+			Args  map[string]any `json:"args"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RunID == "" || body.Name == "" {
+			errmodel.WriteHTTP(w, r, errmodel.Validation("missing_fields", "run_id and name required", map[string]any{"fields": []string{"run_id", "name"}}))
+			return
+		}
+		te := agent.ToolEffectHandler{AllowedPermissions: map[string]bool{"network:outbound": true, "fs:read": true}, Validate: agent.JSONSchemaValidator}
+		runner := runtime.NewRunner(st, todo.Reducer{}, []agent.EffectHandler{te, todo.LoggerEffect{}}, func(runID string) agent.State { return todo.State{Run: runID} })
+		ev := agent.Event{ID: uuid.NewString(), Type: "tool", Timestamp: time.Now().UTC(), Payload: map[string]any{"name": body.Name, "args": body.Args}}
+		s, err := runner.HandleEvent(r.Context(), body.RunID, ev)
+		if err != nil {
+			errmodel.WriteHTTP(w, r, err)
+			return
+		}
+		writeJSON(w, s)
+	})
 	// Register demo tools
 	_ = agent.RegisterTool(tools.HTTPGetTool{})
 	_ = agent.RegisterTool(tools.FileReadTool{FS: os.DirFS(".")})
