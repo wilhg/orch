@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/wilhg/orch/examples/todo"
 	"github.com/wilhg/orch/pkg/agent"
+	"github.com/wilhg/orch/pkg/agent/tools"
 	"github.com/wilhg/orch/pkg/errmodel"
 	otto "github.com/wilhg/orch/pkg/otel"
 	"github.com/wilhg/orch/pkg/runtime"
@@ -73,6 +74,9 @@ func main() {
 
 func buildMux(st store.Store) *http.ServeMux {
 	mux := http.NewServeMux()
+	// Register demo tools
+	_ = agent.RegisterTool(tools.HTTPGetTool{})
+	_ = agent.RegisterTool(tools.FileReadTool{FS: os.DirFS(".")})
 	// Example: trigger todo reducer/effects through a simple endpoint.
 	mux.HandleFunc("/api/examples/todo", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
