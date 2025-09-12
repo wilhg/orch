@@ -59,11 +59,12 @@ fi
   - Examples: Postgres container for store; networked tools.
   - Keep tests hermetic and self-cleaning.
 
-## You should ALWAYS do the Git commits
+## You should ALWAYS make Git commits after tests pass
 
-- After formatting and tests pass, use golangci-lint:
+- Commit only after local tests pass. Then run lint before committing:
 
 ```bash
+go test ./... -race -shuffle=on
 golangci-lint fmt
 golangci-lint run
 ```
