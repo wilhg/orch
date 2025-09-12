@@ -234,7 +234,7 @@ func agentEventToRecord(runID string, e agent.Event) store.EventRecord {
 	var payload json.RawMessage
 	if e.Payload != nil {
 		b, _ := json.Marshal(e.Payload)
-		payload = b
+		payload = json.RawMessage(b)
 	}
 	return store.EventRecord{
 		EventID:   e.ID,

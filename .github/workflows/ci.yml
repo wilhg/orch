@@ -12,6 +12,8 @@ permissions:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    env:
+      GOEXPERIMENT: jsonv2,greenteagc
     steps:
       - name: Checkout
         uses: actions/checkout@v4

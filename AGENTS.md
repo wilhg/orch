@@ -7,6 +7,25 @@ Read all .md docs under ./agents/ folder
 - **Containers**: Go 1.25 introduces container-aware `GOMAXPROCS` defaults; prefer relying on runtime defaults unless you have measured reasons to override.
 - **Spec cleanup**: The language spec removes the “core types” notion; no code changes needed for typical projects.
 
+### Always-on Go 1.25 features in this repo
+
+- **GreenTea GC (experimental)**: Enabled by default via `GOEXPERIMENT=greenteagc` in CI and Docker images. Measure in your environment before overriding.
+- **JSON v2 (experimental)**: Enabled by default via `GOEXPERIMENT=jsonv2` so the standard `encoding/json` uses the new faster implementation. The API remains `encoding/json`; only the implementation switches. Subject to change across Go versions.
+
+Local dev tips
+
+```bash
+# enable same defaults locally (compiler experiments)
+export GOEXPERIMENT=jsonv2,greenteagc
+
+go test ./... -race -shuffle=on
+```
+
+Notes
+- Both features are experimental; if you hit regressions, unset them locally:
+  - `unset GOEXPERIMENT; export GODEBUG=`
+- Container-aware `GOMAXPROCS` is automatic; avoid manual overrides unless measured.
+
 ### References
 - **Go 1.25 Release Notes**: [go.dev/doc/go1.25](https://go.dev/doc/go1.25)
 - **Go 1.25 Blog**: [go.dev/blog/go1.25](https://go.dev/blog/go1.25)
