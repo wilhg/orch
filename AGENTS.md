@@ -59,7 +59,7 @@ fi
   - Examples: Postgres container for store; networked tools.
   - Keep tests hermetic and self-cleaning.
 
-## Git commits
+## You should ALWAYS do the Git commits
 
 - After formatting and tests pass, use golangci-lint:
 
