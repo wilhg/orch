@@ -103,3 +103,40 @@ curl -sX POST http://localhost:8080/api/examples/todo -H 'content-type: applicat
 - **Planned server support (M2:T7)**
   - Expose registered tools via an `mcp.Server`, map our `agent.Tool` to MCP tool descriptors, and forward `CallTool` to `SafeInvoke`.
   - Add an integration test (tagged) that spins up a local MCP server and verifies client handshake/tool calls.
+
+#### Additional notes
+
+- **Build tags and defaults**
+  - Default build: MCP disabled (no-op wrappers).
+  - Enable real client/server with: `-tags mcp` (e.g., `go test -tags mcp ./...`).
+  - Consider a separate tagged CI job for MCP.
+
+- **Transports**
+  - SDK supports JSON-RPC over multiple transports (WS, SSE, raw net.Conn).
+  - We provide `Serve(ctx, addr)` (simple TCP accept loop) and `ServeConn` for pre-established connections. For production, prefer WS/WSS.
+
+- **Tool schema types**
+  - SDK tool descriptors use `jsonschema-go` types. If we move beyond `[]byte` schemas locally, add a converter when exporting tools.
+
+- **Client/server API alignment**
+  - Client flow: create → wire to connection (Serve) → `Handshake` → `ListTools`/`ListResources` → `CallTool`.
+  - Map SDK responses to our local `ToolDescriptor`/resource structs.
+
+- **Error semantics**
+  - Convert MCP errors to our compact error model (`pkg/errmodel`) with category/code.
+
+- **Security and auth**
+  - Use SDK auth hooks for tokens/headers if the peer requires auth. Use TLS (WSS/HTTPS) at transport.
+
+- **Observability**
+  - Add OTel spans around handshake and tool calls. Consider an MCP→OTel bridge for richer instrumentation.
+
+- **Testing patterns**
+  - Use `net.Pipe()` for deterministic in-memory client/server tests; keep behind `-tags mcp`.
+
+- **Versioning**
+  - Pin a compatible `modelcontextprotocol/go-sdk` version; monitor upstream changes in `mcp/*` APIs.
+
+- **References**
+  - SDK repo: `https://github.com/modelcontextprotocol/go-sdk`
+  - MCP package: `https://github.com/modelcontextprotocol/go-sdk/tree/main/mcp`
