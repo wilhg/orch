@@ -52,17 +52,26 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		// ent expects sqlite3 dialect token for sqlite family
 		dialect = "sqlite3"
 	} else {
+		// Support both URL-style and keyword-style DSNs for pgx.
 		u, err := url.Parse(databaseURL)
-		if err != nil {
-			return nil, fmt.Errorf("parse dsn: %w", err)
-		}
-		switch strings.ToLower(u.Scheme) {
-		case "postgres", "postgresql":
-			drvName = "pgx"
-			dsn = databaseURL
-			dialect = "postgres"
-		default:
-			return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+		if err == nil && u.Scheme != "" {
+			switch strings.ToLower(u.Scheme) {
+			case "postgres", "postgresql":
+				drvName = "pgx"
+				dsn = databaseURL
+				dialect = "postgres"
+			default:
+				return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+			}
+		} else {
+			// Keyword-style DSN (e.g., "user=... password=... host=... dbname=...")
+			if strings.Contains(databaseURL, "host=") || strings.Contains(databaseURL, "user=") || strings.Contains(databaseURL, "dbname=") {
+				drvName = "pgx"
+				dsn = databaseURL
+				dialect = "postgres"
+			} else {
+				return nil, fmt.Errorf("unsupported dsn format")
+			}
 		}
 	}
 

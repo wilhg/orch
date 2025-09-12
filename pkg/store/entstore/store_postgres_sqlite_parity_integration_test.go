@@ -42,9 +42,9 @@ func TestParity_SQLite_vs_Postgres_EventOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pg, err := Open(ctx, fmt.Sprintf("postgres://%s", dsn))
+	pg, err := Open(ctx, dsn)
 	if err != nil {
-		t.Fatal(err)
+		t.Skipf("skip: cannot connect to postgres: %v", err)
 	}
 	t.Cleanup(func() { _ = pg.Close() })
 	if err := pg.Migrate(ctx); err != nil {

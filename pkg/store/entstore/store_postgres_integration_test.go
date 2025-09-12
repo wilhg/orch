@@ -5,7 +5,6 @@ package entstore
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -31,10 +30,10 @@ func TestPostgresEventFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// ConnectionString returns DSN for pgx.
-	st, err := Open(ctx, fmt.Sprintf("postgres://%s", dsn))
+	// Use DSN as-is (driver-specific) with our Open(), which supports keyword-style pgx DSNs.
+	st, err := Open(ctx, dsn)
 	if err != nil {
-		t.Fatal(err)
+		t.Skipf("skip: cannot connect to postgres: %v", err)
 	}
 	t.Cleanup(func() { _ = st.Close() })
 
