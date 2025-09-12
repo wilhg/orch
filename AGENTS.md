@@ -84,3 +84,22 @@ RUN_ID=$(curl -sX POST http://localhost:8080/api/runs | jq -r .run_id)
 curl -sX POST http://localhost:8080/api/examples/todo -H 'content-type: application/json' \
   -d '{"RunID":"'"$RUN_ID"'","Type":"complete_task","Payload":{"title":"demo"}}'
 ```
+
+### Model Context Protocol (MCP) Go SDK
+
+- **SDK**: We use the official MCP Go SDK to implement client/server interoperability.
+  - Repository: `https://github.com/modelcontextprotocol/go-sdk`
+  - Core package: `mcp/` (client, server, tool/resource APIs, protocol types).
+- **Integration in this repo**
+  - Client wrapper: `pkg/mcpclient/`
+    - Default build (no tags): no-op client so normal builds/tests don’t require MCP.
+    - With `-tags mcp`: wraps the official SDK to provide `Dial/Handshake`, `ListTools`, `CallTool`, and `ListResources`.
+  - Tool registry: `pkg/agent/registry.go` provides `RegisterTool`, `ResolveTool`, and `RangeTools` to export local tools to an MCP server.
+- **Build/run notes**
+  - Enable Go 1.25 experiments as usual: `export GOEXPERIMENT=jsonv2,greenteagc`.
+  - Build with MCP client enabled:
+    - `go test -tags mcp ./... -race -shuffle=on`
+  - The real MCP client expects a ws:// or wss:// endpoint to `Dial` and then `Handshake`.
+- **Planned server support (M2:T7)**
+  - Expose registered tools via an `mcp.Server`, map our `agent.Tool` to MCP tool descriptors, and forward `CallTool` to `SafeInvoke`.
+  - Add an integration test (tagged) that spins up a local MCP server and verifies client handshake/tool calls.

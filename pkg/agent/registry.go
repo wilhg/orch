@@ -65,3 +65,12 @@ func SafeInvoke(ctx context.Context, t Tool, args map[string]any, allowed map[st
 	}
 	return out, nil
 }
+
+// RangeTools iterates over registered tools.
+func RangeTools(fn func(name string, t Tool)) {
+	toolsMu.RLock()
+	defer toolsMu.RUnlock()
+	for n, t := range tools {
+		fn(n, t)
+	}
+}
