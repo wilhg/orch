@@ -4,16 +4,15 @@ package mcpclient
 
 import (
 	"context"
-	"net"
+	"encoding/json"
 	"testing"
 	"time"
 
+	jsonschema "github.com/google/jsonschema-go/jsonschema"
 	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/wilhg/orch/pkg/agent"
-	"github.com/wilhg/orch/pkg/mcpserver"
 )
 
-// sumTool is a minimal tool for exercising client/server calls.
 type sumTool struct{}
 
 func (sumTool) Describe() agent.ToolDescriptor {
@@ -32,37 +31,79 @@ func (sumTool) Invoke(ctx context.Context, args map[string]any) (map[string]any,
 	return map[string]any{"sum": a + b}, nil
 }
 
-// newLoopbackClientServer wires an MCP server and sdkClient over an in-memory connection.
-func newLoopbackClientServer(t *testing.T, allowed map[string]bool) (*sdkClient, *mcpserver.Server, func()) {
+func setupLoopback(t *testing.T, allowed map[string]bool) (*mcp.ClientSession, func()) {
 	t.Helper()
+	_ = agent.RegisterTool(sumTool{})
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 
-	srv, err := mcpserver.New(ctx)
-	if err != nil {
-		t.Fatalf("server: %v", err)
-	}
-	if err := srv.RegisterFromRegistry(allowed, agent.JSONSchemaValidator); err != nil {
-		t.Fatalf("register: %v", err)
-	}
-	c1, c2 := net.Pipe()
-	go func() { _ = srv.ServeConn(ctx, c1) }()
+	// Build server
+	s := mcp.NewServer(&mcp.Implementation{Name: "orch-test", Version: "dev"}, nil)
+	agent.RangeTools(func(name string, tl agent.Tool) {
+		d := tl.Describe()
+		var inSch jsonschema.Schema
+		_ = json.Unmarshal(d.InputSchema, &inSch)
+		mcp.AddTool(s, &mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: &inSch}, func(ctx context.Context, req *mcp.CallToolRequest, args map[string]any) (*mcp.CallToolResult, map[string]any, error) {
+			out, err := agent.SafeInvoke(ctx, tl, args, allowed, agent.JSONSchemaValidator)
+			if err != nil {
+				// Return as tool error result
+				return &mcp.CallToolResult{IsError: true}, nil, nil
+			}
+			return nil, out, nil
+		})
+	})
 
-	// Wrap the SDK client inside our adapter so we exercise wrapper methods.
-	raw := mcp.NewClient()
-	go func() { _ = raw.Serve(ctx, c2) }()
-	cli := &sdkClient{c: raw}
+	srvT, cliT := mcp.NewInMemoryTransports()
+	go func() { _ = s.Run(ctx, srvT) }()
+	client := mcp.NewClient(&mcp.Implementation{Name: "mcp-client", Version: "v1.0.0"}, nil)
+	session, err := client.Connect(ctx, cliT, nil)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
 
 	cleanup := func() {
-		_ = cli.Close()
+		_ = session.Close()
 		cancel()
 	}
-	return cli, srv, cleanup
+	return session, cleanup
 }
 
 func TestMCPClient_Handshake_List_Call_Success_And_InvalidInput(t *testing.T) {
-	t.Skip("MCP server/client API update pending (go-sdk v0.4)")
+	sess, cleanup := setupLoopback(t, map[string]bool{"cpu": true})
+	defer cleanup()
+
+	ctx := context.Background()
+	tools, err := sess.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	if len(tools.Tools) == 0 {
+		t.Fatal("no tools listed")
+	}
+
+	res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "sum", Arguments: map[string]any{"a": 1.0, "b": 2.0}})
+	if err != nil {
+		t.Fatalf("call tool: %v", err)
+	}
+	m, _ := res.StructuredContent.(map[string]any)
+	if _, ok := m["sum"]; !ok {
+		t.Fatalf("missing sum in %v", res.StructuredContent)
+	}
+
+	// Invalid input is rejected by SDK validation against InputSchema and surfaces as an error
+	if _, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "sum", Arguments: map[string]any{"a": "x", "b": 2.0}}); err == nil {
+		t.Fatalf("expected validation error from CallTool")
+	}
 }
 
 func TestMCPClient_CallTool_ForbiddenPermission(t *testing.T) {
-	t.Skip("MCP server/client API update pending (go-sdk v0.4)")
+	sess, cleanup := setupLoopback(t, map[string]bool{})
+	defer cleanup()
+	res, err := sess.CallTool(context.Background(), &mcp.CallToolParams{Name: "sum", Arguments: map[string]any{"a": 1.0, "b": 2.0}})
+	if err != nil {
+		t.Fatalf("unexpected transport error: %v", err)
+	}
+	if !res.IsError {
+		t.Fatalf("expected permission error result")
+	}
 }

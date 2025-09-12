@@ -30,10 +30,17 @@ func TestPostgresEventFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Use DSN as-is (driver-specific) with our Open(), which supports keyword-style pgx DSNs.
-	st, err := Open(ctx, dsn)
-	if err != nil {
-		t.Skipf("skip: cannot connect to postgres: %v", err)
+	var st *Store
+	deadline := time.Now().Add(45 * time.Second)
+	for {
+		st, err = Open(ctx, dsn)
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("connect to postgres after retries: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	t.Cleanup(func() { _ = st.Close() })
 

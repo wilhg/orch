@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
@@ -42,9 +43,17 @@ func TestParity_SQLite_vs_Postgres_EventOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pg, err := Open(ctx, dsn)
-	if err != nil {
-		t.Skipf("skip: cannot connect to postgres: %v", err)
+	var pg *Store
+	deadline := time.Now().Add(45 * time.Second)
+	for {
+		pg, err = Open(ctx, dsn)
+		if err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("connect to postgres after retries: %v", err)
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	t.Cleanup(func() { _ = pg.Close() })
 	if err := pg.Migrate(ctx); err != nil {
