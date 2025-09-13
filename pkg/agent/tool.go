@@ -13,36 +13,14 @@ type ToolPermission struct {
 	Description string `json:"description,omitempty"`
 }
 
-// SideEffectCategory enumerates coarse-grained side effect types a tool may perform.
-// These are used for policy, auditing, and explainability.
-type SideEffectCategory string
-
-const (
-	// external network I/O
-	SideEffectNetwork SideEffectCategory = "network"
-	// local file I/O
-	SideEffectFilesystem SideEffectCategory = "filesystem"
-	// spawn subprocesses
-	SideEffectProcess SideEffectCategory = "process"
-	// model/LLM calls
-	SideEffectModel SideEffectCategory = "model"
-	// database writes/reads
-	SideEffectDatabase SideEffectCategory = "database"
-	// cache writes/reads
-	SideEffectCache SideEffectCategory = "cache"
-	// secret access
-	SideEffectSecret SideEffectCategory = "secret"
-)
-
 // ToolDescriptor declares the static interface of a tool.
 // InputSchema and OutputSchema are JSON Schemas (draft 2020-12) in UTF-8 bytes.
 type ToolDescriptor struct {
-	Name         string               `json:"name"`
-	Description  string               `json:"description,omitempty"`
-	InputSchema  []byte               `json:"input_schema"`
-	OutputSchema []byte               `json:"output_schema"`
-	Permissions  []ToolPermission     `json:"permissions,omitempty"`
-	SideEffects  []SideEffectCategory `json:"side_effects,omitempty"`
+	Name         string           `json:"name"`
+	Description  string           `json:"description,omitempty"`
+	InputSchema  []byte           `json:"input_schema"`
+	OutputSchema []byte           `json:"output_schema"`
+	Permissions  []ToolPermission `json:"permissions,omitempty"`
 }
 
 // Tool defines a callable unit with schema-validated inputs/outputs and a permission model.

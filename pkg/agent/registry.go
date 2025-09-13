@@ -23,21 +23,6 @@ func RegisterTool(t Tool) error {
 	if d.Name == "" {
 		return fmt.Errorf("tool name is empty")
 	}
-	// Validate schemas compile and side-effect categories are recognized.
-	if err := validateSchemaOnly(d.InputSchema); err != nil {
-		return fmt.Errorf("invalid input schema for %s: %w", d.Name, err)
-	}
-	if err := validateSchemaOnly(d.OutputSchema); err != nil {
-		return fmt.Errorf("invalid output schema for %s: %w", d.Name, err)
-	}
-	for _, c := range d.SideEffects {
-		switch c {
-		case SideEffectNetwork, SideEffectFilesystem, SideEffectProcess, SideEffectModel, SideEffectDatabase, SideEffectCache, SideEffectSecret:
-			// ok
-		default:
-			return fmt.Errorf("unknown side effect category %q for tool %s", c, d.Name)
-		}
-	}
 	toolsMu.Lock()
 	defer toolsMu.Unlock()
 	if _, exists := tools[d.Name]; exists {
@@ -88,12 +73,4 @@ func RangeTools(fn func(name string, t Tool)) {
 	for n, t := range tools {
 		fn(n, t)
 	}
-}
-
-// validateSchemaOnly compiles a JSON schema to ensure it is well-formed.
-func validateSchemaOnly(schema []byte) error {
-	if len(schema) == 0 {
-		return nil
-	}
-	return CompileJSONSchema(schema)
 }

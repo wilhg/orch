@@ -18,7 +18,6 @@ func (badOutputTool) Describe() ToolDescriptor {
 		InputSchema:  []byte(`{"type":"object","properties":{},"additionalProperties":false}`),
 		OutputSchema: []byte(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}`),
 		Permissions:  []ToolPermission{{Name: "cpu"}},
-		SideEffects:  []SideEffectCategory{SideEffectProcess},
 	}
 }
 
