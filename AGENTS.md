@@ -170,3 +170,36 @@ asm := assembler.New(assembler.WithTokenEstimator(est))
   - **ORCH_TOKEN_ENCODING**: Set to a tiktoken encoding name (e.g., `o200k_base`, `cl100k_base`).
   - **ORCH_TOKEN_MODEL**: Alternative to specify a model name (e.g., `gpt-4o`, `gpt-4`).
   - Precedence: `ORCH_TOKEN_ENCODING` > `ORCH_TOKEN_MODEL` > default `o200k_base` > rune-length fallback.
+
+### ChromaDB Vector Store Adapter
+
+- We provide a VectorStore adapter for ChromaDB, using Chroma’s HTTP API.
+- Client reference: `Chroma Go Client` docs [go-client.chromadb.dev](https://go-client.chromadb.dev/).
+- Configuration (factory `chromadb` in `pkg/adapters/vectorstore/chromadb`):
+  - **base_url**: Chroma server base URL. Default from `ORCH_CHROMADB_URL` or `http://localhost:8000`.
+  - **collection**: Optional fixed collection name. If unset, the adapter uses `namespace` as the collection name, defaulting to `default`.
+  - **create_if_missing**: Whether to create a collection if it does not exist. Default true.
+- Semantics
+  - Upsert: groups items by collection, calls `/api/v1/collections/{id}/add` with ids/embeddings/metadatas.
+  - Query: calls `/api/v1/collections/{id}/query` with `query_embeddings`, optional `where` (metadata filter), and returns matches with inverted distance as similarity score.
+  - Deduplication/upsert semantics are server-side per Chroma’s API; this adapter always sends provided IDs.
+- Usage example
+```go
+import (
+  "context"
+  vstore "github.com/wilhg/orch/pkg/adapters/vectorstore"
+  chroma "github.com/wilhg/orch/pkg/adapters/vectorstore/chromadb"
+)
+
+func newChroma(ctx context.Context) (vstore.VectorStore, error) {
+  return chroma.Factory(ctx, map[string]any{
+    "base_url": "http://localhost:8000",
+    "collection": "docs",
+    "create_if_missing": true,
+  })
+}
+```
+
+- Notes
+  - Ensure ChromaDB is running and accessible at the configured `base_url`.
+  - For production, secure the Chroma deployment and configure network ACLs appropriately.
