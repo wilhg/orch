@@ -20,9 +20,17 @@ type Pinned struct {
 
 // AssemblyLog summarizes the assembly decision.
 type AssemblyLog struct {
-	TotalTokens    int // total tokens of included items
-	IncludedTokens int // same as TotalTokens (kept for explicitness)
-	DroppedCount   int // number of items excluded due to budget (duplicates are not counted)
+	TotalTokens    int       // total tokens of included items
+	IncludedTokens int       // same as TotalTokens (kept for explicitness)
+	DroppedCount   int       // number of items excluded due to budget (duplicates are not counted)
+	Items          []LogItem // per-item stats in final included order
+}
+
+// LogItem captures citation-friendly metadata for an included item.
+type LogItem struct {
+	Source     string
+	ChunkID    string
+	TokenCount int
 }
 
 // TokenEstimator estimates token usage of text content.
@@ -117,6 +125,7 @@ func (a *Assembler) Assemble(items []Item, pins []Pinned) ([]Item, AssemblyLog) 
 	// Accumulate under budget
 	budget := a.maxTokens
 	result := make([]Item, 0, len(items))
+	logs := make([]LogItem, 0, len(items))
 	includedTokens := 0
 	take := func(it Item) bool {
 		cost := a.estimate(it.Text)
@@ -124,6 +133,7 @@ func (a *Assembler) Assemble(items []Item, pins []Pinned) ([]Item, AssemblyLog) 
 			budget -= cost
 			includedTokens += cost
 			result = append(result, it)
+			logs = append(logs, LogItem{Source: it.Source, ChunkID: it.ChunkID, TokenCount: cost})
 			return true
 		}
 		return false
@@ -139,6 +149,6 @@ func (a *Assembler) Assemble(items []Item, pins []Pinned) ([]Item, AssemblyLog) 
 		}
 	}
 
-	log := AssemblyLog{TotalTokens: includedTokens, IncludedTokens: includedTokens, DroppedCount: budgetDropped}
+	log := AssemblyLog{TotalTokens: includedTokens, IncludedTokens: includedTokens, DroppedCount: budgetDropped, Items: logs}
 	return result, log
 }

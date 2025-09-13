@@ -47,6 +47,16 @@ func TestAssemble_Pinning_Dedup_Budget(t *testing.T) {
 	if log.TotalTokens != 9 || log.IncludedTokens != 9 || log.DroppedCount != 1 {
 		t.Fatalf("log mismatch: %+v", log)
 	}
+	// Per-item token stats should enumerate included items in order
+	if len(log.Items) != 2 {
+		t.Fatalf("log items len=%d want 2", len(log.Items))
+	}
+	if log.Items[0].Source != "docC" || log.Items[0].ChunkID != "3" || log.Items[0].TokenCount != 5 {
+		t.Fatalf("log.Items[0] unexpected: %+v", log.Items[0])
+	}
+	if log.Items[1].Source != "docA" || log.Items[1].ChunkID != "1" || log.Items[1].TokenCount != 4 {
+		t.Fatalf("log.Items[1] unexpected: %+v", log.Items[1])
+	}
 }
 
 func TestAssemble_DeterministicOrder(t *testing.T) {
