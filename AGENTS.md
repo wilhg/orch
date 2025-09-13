@@ -1,4 +1,4 @@
-Read all .md docs under ./agents/ folder
+
 
 ## Go 1.25 Guidance
 
