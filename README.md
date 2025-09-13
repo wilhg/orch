@@ -96,3 +96,56 @@ Types: `add_task`, `complete_task`. Completing a task emits a `logged` event via
 - Traces: enabled via `pkg/otel`. Set `ORCH_OTEL_STDOUT=1` to pretty-print spans to stdout.
 - HTTP spans: enabled using `otelhttp` wrapper in `cmd/orch`.
 
+## Models (LLMs & Embeddings)
+
+We ship first-class adapters for OpenAI and Gemini. Each provider includes an LLM (chat) and Embeddings client with sensible defaults.
+
+- OpenAI
+  - Default chat model: `gpt-5-nano`
+  - Default embedding model: `text-embedding-3-small`
+  - Auth: set `OPENAI_API_KEY`
+
+- Gemini (go-genai)
+  - Default chat model: `gemini-2.5-flash-lite`
+  - Default embedding model: `gemini-embedding-001`
+  - Auth: set `GOOGLE_API_KEY`
+  - Backend: set `GOOGLE_GENAI_USE_VERTEXAI=false` to use the Gemini API backend (default when using our adapter factory via API key)
+
+### Local env (.env)
+
+Use a local `.env` for convenience (see `.env.example`). Load it with `set -a && source .env && set +a`.
+
+```bash
+# .env example
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=ai-...
+GOEXPERIMENT=jsonv2,greenteagc
+```
+
+### Integration tests
+
+Integration tests are tagged and skipped unless the respective API key is present.
+
+```bash
+# OpenAI
+set -a && source .env && set +a
+go test -tags=integration ./... -run TestOpenAI -v
+
+# Gemini
+set -a && source .env && set +a
+go test -tags=integration ./... -run TestGemini -v
+```
+
+Notes
+- We enable Go 1.25 experiments locally for parity with CI: `GOEXPERIMENT=jsonv2,greenteagc`.
+- Some container-based tests (e.g., ChromaDB, Postgres) require Docker.
+
+### CI secrets
+
+GitHub Actions will run unit tests for all PRs. Integration jobs run when secrets are configured:
+
+- Set `OPENAI_API_KEY` (repository secret) to enable the OpenAI integration job
+- Set `GOOGLE_API_KEY` (repository secret) to enable the Gemini integration job
+
+Both jobs respect `GOEXPERIMENT=jsonv2,greenteagc` and execute `go test -tags=integration`.
+
