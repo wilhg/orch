@@ -1,4 +1,4 @@
-
+You MUST read all .md docs under the ./agents/ folder.
 
 ## Go 1.25 Guidance
 
