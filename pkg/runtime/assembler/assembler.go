@@ -1,6 +1,7 @@
 package assembler
 
 import (
+	"os"
 	"sort"
 )
 
@@ -73,12 +74,30 @@ func New(opts ...Option) *Assembler {
 	for _, opt := range opts {
 		opt(a)
 	}
-	// Default estimator: try tiktoken o200k_base; fallback to rune length.
+	// Default estimator resolution order:
+	// 1) ORCH_TOKEN_ENCODING
+	// 2) ORCH_TOKEN_MODEL
+	// 3) o200k_base encoding
+	// 4) rune-length fallback
 	if a.estimate == nil {
-		if est, err := NewTikTokenEncodingEstimator("o200k_base"); err == nil {
-			a.estimate = est
-		} else {
-			a.estimate = func(s string) int { return len([]rune(s)) }
+		if enc := os.Getenv("ORCH_TOKEN_ENCODING"); enc != "" {
+			if est, err := NewTikTokenEncodingEstimator(enc); err == nil {
+				a.estimate = est
+			}
+		}
+		if a.estimate == nil {
+			if model := os.Getenv("ORCH_TOKEN_MODEL"); model != "" {
+				if est, err := NewTikTokenEstimator(model); err == nil {
+					a.estimate = est
+				}
+			}
+		}
+		if a.estimate == nil {
+			if est, err := NewTikTokenEncodingEstimator("o200k_base"); err == nil {
+				a.estimate = est
+			} else {
+				a.estimate = func(s string) int { return len([]rune(s)) }
+			}
 		}
 	}
 	return a

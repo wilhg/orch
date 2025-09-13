@@ -165,3 +165,8 @@ asm := assembler.New(assembler.WithTokenEstimator(est))
 - Notes
   - See the repo’s README for mapping between models and encodings (e.g., `o200k_base`, `cl100k_base`).
   - If tokenization fails (e.g., missing encoding files), we transparently fall back to rune-length so development isn’t blocked. For production determinism, prefer explicit estimators.
+
+- Environment overrides
+  - **ORCH_TOKEN_ENCODING**: Set to a tiktoken encoding name (e.g., `o200k_base`, `cl100k_base`).
+  - **ORCH_TOKEN_MODEL**: Alternative to specify a model name (e.g., `gpt-4o`, `gpt-4`).
+  - Precedence: `ORCH_TOKEN_ENCODING` > `ORCH_TOKEN_MODEL` > default `o200k_base` > rune-length fallback.
