@@ -17,6 +17,7 @@ func (echoTool) Describe() ToolDescriptor {
 		InputSchema:  in,
 		OutputSchema: out,
 		Permissions:  []ToolPermission{{Name: "cpu", Description: "local compute"}},
+		SideEffects:  []SideEffectCategory{SideEffectProcess},
 	}
 }
 
@@ -39,5 +40,8 @@ func TestDescribeTool(t *testing.T) {
 	}
 	if len(d.Permissions) != 1 || d.Permissions[0].Name != "cpu" {
 		t.Fatalf("permissions=%v", d.Permissions)
+	}
+	if len(d.SideEffects) != 1 || d.SideEffects[0] != SideEffectProcess {
+		t.Fatalf("side_effects=%v", d.SideEffects)
 	}
 }

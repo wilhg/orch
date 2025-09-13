@@ -13,6 +13,7 @@ func (testTool) Describe() ToolDescriptor {
 		InputSchema:  []byte(`{"type":"object","properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"],"additionalProperties":false}`),
 		OutputSchema: []byte(`{"type":"object","properties":{"sum":{"type":"number"}},"required":["sum"],"additionalProperties":false}`),
 		Permissions:  []ToolPermission{{Name: "cpu"}},
+		SideEffects:  []SideEffectCategory{SideEffectProcess},
 	}
 }
 
