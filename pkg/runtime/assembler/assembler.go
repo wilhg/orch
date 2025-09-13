@@ -65,12 +65,21 @@ func WithMaxTokens(n int) Option {
 
 // New creates a new Assembler.
 func New(opts ...Option) *Assembler {
+	// Start with nil estimator so we can prefer tiktoken by default.
 	a := &Assembler{
-		estimate:  func(s string) int { return len([]rune(s)) },
+		estimate:  nil,
 		maxTokens: 1_000_000_000,
 	}
 	for _, opt := range opts {
 		opt(a)
+	}
+	// Default estimator: try tiktoken o200k_base; fallback to rune length.
+	if a.estimate == nil {
+		if est, err := NewTikTokenEncodingEstimator("o200k_base"); err == nil {
+			a.estimate = est
+		} else {
+			a.estimate = func(s string) int { return len([]rune(s)) }
+		}
 	}
 	return a
 }

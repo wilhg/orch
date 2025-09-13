@@ -140,3 +140,28 @@ curl -sX POST http://localhost:8080/api/examples/todo -H 'content-type: applicat
 - **References**
   - SDK repo: `https://github.com/modelcontextprotocol/go-sdk`
   - MCP package: `https://github.com/modelcontextprotocol/go-sdk/tree/main/mcp`
+
+### Token Counting (tiktoken-go)
+
+- We use `tiktoken-go` for accurate token counting in the context assembler by default.
+  - Default encoding: `o200k_base` (optimized for GPT-4o / 4.1 / 4.5 families) per upstream guidance.
+  - Library: `github.com/pkoukk/tiktoken-go` ([repo](https://github.com/pkoukk/tiktoken-go)).
+- Usage in code
+  - The assembler tries `o200k_base` via `GetEncoding` and falls back to rune-length estimation if unavailable.
+  - You can override with a specific model/encoding:
+
+```go
+import "github.com/wilhg/orch/pkg/runtime/assembler"
+
+// Model-based estimator
+est, _ := assembler.NewTikTokenEstimator("gpt-4o")
+
+// Encoding-based estimator (e.g., cl100k_base)
+est2, _ := assembler.NewTikTokenEncodingEstimator("cl100k_base")
+
+asm := assembler.New(assembler.WithTokenEstimator(est))
+```
+
+- Notes
+  - See the repo’s README for mapping between models and encodings (e.g., `o200k_base`, `cl100k_base`).
+  - If tokenization fails (e.g., missing encoding files), we transparently fall back to rune-length so development isn’t blocked. For production determinism, prefer explicit estimators.

@@ -17,3 +17,15 @@ func NewTikTokenEstimator(model string) (TokenEstimator, error) {
 		return len(enc.Encode(text, nil, nil))
 	}, nil
 }
+
+// NewTikTokenEncodingEstimator returns a TokenEstimator for a specific encoding name
+// like "o200k_base" or "cl100k_base".
+func NewTikTokenEncodingEstimator(encoding string) (TokenEstimator, error) {
+	enc, err := tiktoken.GetEncoding(encoding)
+	if err != nil {
+		return nil, err
+	}
+	return func(text string) int {
+		return len(enc.Encode(text, nil, nil))
+	}, nil
+}
