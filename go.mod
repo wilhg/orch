@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/modelcontextprotocol/go-sdk v0.5.0
 	github.com/ncruces/go-sqlite3 v0.29.0
-	github.com/openai/openai-go/v2 v2.4.3
+	github.com/openai/openai-go/v2 v2.5.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/testcontainers/testcontainers-go v0.38.0
@@ -19,23 +19,23 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
-	google.golang.org/genai v1.24.0
+	google.golang.org/genai v1.25.0
 )
 
 require (
-	ariga.io/atlas v0.36.1 // indirect
+	ariga.io/atlas v0.37.0 // indirect
 	cloud.google.com/go v0.122.0 // indirect
 	cloud.google.com/go/auth v0.16.5 // indirect
-	cloud.google.com/go/compute/metadata v0.8.0 // indirect
+	cloud.google.com/go/compute/metadata v0.8.3 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v16 v16.0.0 // indirect
-	github.com/apparentlymart/go-textseg/v16 v16.0.0 // indirect
+	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
-	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
-	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
