@@ -10,7 +10,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.1.0
 	github.com/ncruces/go-sqlite3 v0.30.3
 	github.com/openai/openai-go/v2 v2.7.1
-	github.com/openai/openai-go/v3 v3.11.0
+	github.com/openai/openai-go/v3 v3.12.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/testcontainers/testcontainers-go v0.40.0
