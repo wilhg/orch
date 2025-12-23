@@ -40,7 +40,7 @@ jobs:
           cosign-release: 'v2.4.0'
 
       - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0.20.5
+        uses: anchore/sbom-action/download-syft@v0.21.0
 
       - name: Install GoReleaser v2.4.0
         uses: goreleaser/goreleaser-action@v6
